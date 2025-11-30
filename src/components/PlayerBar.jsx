@@ -24,7 +24,6 @@ const PlayerBar = ({ onExpand }) => {
   };
 
   return (
-    // ĐÃ XÓA: border-t border-[#282828]
     <div className="h-24 bg-black px-4 grid grid-cols-[1fr_2fr_1fr] items-center z-50">
         
         {/* Left: Track Info */}

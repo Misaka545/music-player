@@ -2,23 +2,20 @@
 import React, { useState, useRef } from 'react';
 import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
-import CustomModal from './CustomModal'; // <--- Import Modal
+import CustomModal from './CustomModal'; 
 
 const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
   const { playlists, createPlaylist, likedSongs } = usePlayer();
 
-  // State cho Modal tạo playlist
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
 
-  // Hàm mở modal
   const handleCreateClick = () => {
-      setNewPlaylistName(""); // Reset tên
+      setNewPlaylistName(""); 
       setIsModalOpen(true);
   };
 
-  // Hàm xác nhận tạo
   const confirmCreatePlaylist = () => {
       if (newPlaylistName && newPlaylistName.trim() !== "") {
           createPlaylist(newPlaylistName);
@@ -30,7 +27,6 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   return (
     <>
         <div className="w-64 flex flex-col py-2 pl-2 pr-0 h-full hidden md:flex">
-            {/* ... (Giữ nguyên toàn bộ nội dung hiển thị Sidebar cũ của bạn) ... */}
             <div className="flex-1 bg-[#121212] rounded-lg flex flex-col overflow-hidden">
                 <div className="p-4 flex flex-col gap-4">
                     <div className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors" onClick={() => onViewChange('library')}>

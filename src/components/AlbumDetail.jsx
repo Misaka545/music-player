@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Heart, MoreHorizontal, Disc, Plus, Check, Trash2, Image as ImageIcon, Upload } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
-import CustomModal from './CustomModal'; // <--- 1. Import Modal
+import CustomModal from './CustomModal'; 
 
 const AlbumDetail = ({ album, onBack }) => { 
   const { startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover } = usePlayer();
@@ -11,7 +11,6 @@ const AlbumDetail = ({ album, onBack }) => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, track: null });
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
-  // 2. State quản lý Modal Xóa
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   const menuRef = useRef(null);
@@ -20,7 +19,6 @@ const AlbumDetail = ({ album, onBack }) => {
 
   const isUserPlaylist = playlists.some(pl => pl.id === album.id);
 
-  // ... (Giữ nguyên các useEffect lock scroll và click outside) ...
   useEffect(() => {
     if (contextMenu.visible) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
@@ -63,20 +61,15 @@ const AlbumDetail = ({ album, onBack }) => {
       closeContextMenu();
   };
 
-  // --- 3. SỬA LOGIC XÓA PLAYLIST ---
-  
-  // Hàm 1: Khi bấm nút xóa trong menu -> Chỉ mở Modal
   const handleDeleteClick = () => {
-      setShowSettingsMenu(false); // Đóng menu 3 chấm trước
-      setIsDeleteModalOpen(true); // Mở Modal xác nhận
+      setShowSettingsMenu(false); 
+      setIsDeleteModalOpen(true); 
   };
 
-  // Hàm 2: Khi bấm "Xóa" trong Modal -> Thực hiện xóa thật
   const confirmDeletePlaylist = () => {
       deletePlaylist(album.id);
-      setIsDeleteModalOpen(false); // Đóng Modal
-      
-      // Chuyển về trang chủ
+      setIsDeleteModalOpen(false);
+
       if (onBack) {
           setTimeout(() => {
               onBack(); 
@@ -97,7 +90,6 @@ const AlbumDetail = ({ album, onBack }) => {
 
   return (
     <div className="animate-in fade-in duration-300 pb-8 relative">
-        {/* ... (Phần Header Album giữ nguyên) ... */}
         <div className="flex flex-col md:flex-row items-end gap-6 mb-6 px-6 pt-6">
             <div className="w-52 h-52 shadow-2xl shadow-black/50 flex-shrink-0 mx-auto md:mx-0 group relative">
                 {album.coverArt ? (
@@ -161,7 +153,6 @@ const AlbumDetail = ({ album, onBack }) => {
                                         <span>Thay đổi ảnh bìa</span>
                                     </button>
                                     
-                                    {/* SỬA: Gọi hàm mở modal thay vì xóa ngay */}
                                     <button 
                                         onClick={handleDeleteClick}
                                         className="w-full text-left px-3 py-2.5 hover:bg-[#3e3e3e] rounded-sm text-sm text-white transition-colors flex items-center gap-2"
@@ -187,7 +178,6 @@ const AlbumDetail = ({ album, onBack }) => {
             </div>
         </div>
 
-        {/* ... (Phần Tracklist giữ nguyên) ... */}
         <div className="w-full text-left text-neutral-400 text-sm mt-2 px-2">
             {albumTracks.map((track, i) => {
                 const isActive = currentTrack.title === track.title;
@@ -226,7 +216,6 @@ const AlbumDetail = ({ album, onBack }) => {
             })}
         </div>
         
-        {/* ... (Phần Custom Context Menu giữ nguyên) ... */}
         {contextMenu.visible && (
             <>
                 <div 
@@ -270,7 +259,6 @@ const AlbumDetail = ({ album, onBack }) => {
             </>
         )}
 
-        {/* --- 4. THÊM MODAL XÓA VÀO CUỐI CÙNG --- */}
         <CustomModal
             isOpen={isDeleteModalOpen}
             title="Xóa Playlist"

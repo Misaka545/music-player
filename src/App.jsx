@@ -1,24 +1,22 @@
 // src/App.jsx
-import React, { useState, useMemo } from 'react'; // Import thêm useMemo
+import React, { useState, useMemo } from 'react'; 
 import * as mm from 'music-metadata-browser';
 import { PlayerProvider, usePlayer } from './context/PlayerContext';
 import Sidebar from './components/Sidebar';
 import PlayerBar from './components/PlayerBar';
 import LibraryGrid from './components/LibraryGrid';
 import AlbumDetail from './components/AlbumDetail';
-import { Search, Play, Disc, ListMusic } from 'lucide-react'; // Import icon cho Search View
+import { Search, Play, Disc, ListMusic } from 'lucide-react'; 
 
 const AppContent = () => {
   const [activeView, setActiveView] = useState('library'); 
   const [libraryAlbums, setLibraryAlbums] = useState({});
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // State cho ô tìm kiếm
+  const [searchQuery, setSearchQuery] = useState(""); 
   
-  // Lấy dữ liệu từ Context
   const { playQueue, playTrack, likedSongs, isLiked, playlists, startAlbumPlayback } = usePlayer();
 
-  // ... (Hàm handleFolderUpload giữ nguyên) ...
   const handleFolderUpload = async (e) => {
     setIsLoading(true);
     const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/') || f.name.endsWith('.flac'));
