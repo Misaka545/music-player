@@ -68,7 +68,14 @@ export const PlayerProvider = ({ children }) => {
     if (playQueue.length <= 0) return;
     let nextIndex = currentTrackIndex + 1;
     if (isShuffle) nextIndex = Math.floor(Math.random() * playQueue.length);
-    else if (nextIndex >= playQueue.length) nextIndex = 0;
+    else if (nextIndex >= playQueue.length){
+        if (repeatMode === 1) { 
+            nextIndex = 0; 
+        } else {
+            setIsPlaying(false);
+            return; 
+        }
+    } 
     setCurrentTrackIndex(nextIndex);
     playTrack(playQueue[nextIndex]);
   };
@@ -154,13 +161,30 @@ export const PlayerProvider = ({ children }) => {
 
   const isLiked = checkIsLiked(currentTrack);
 
+  const toggleLikeMultiple = (tracks) => {
+      if (!tracks || tracks.length === 0) return;
+
+      // Kiểm tra xem tất cả bài hát này đã được like chưa
+      const allLiked = tracks.every(t => likedSongs.some(ls => ls.title === t.title));
+
+      if (allLiked) {
+          // Nếu đã like hết -> Xóa hết khỏi mục yêu thích
+          const trackTitlesToRemove = tracks.map(t => t.title);
+          setLikedSongs(prev => prev.filter(s => !trackTitlesToRemove.includes(s.title)));
+      } else {
+          // Nếu chưa like hết -> Thêm những bài chưa like vào
+          const newSongs = tracks.filter(t => !likedSongs.some(ls => ls.title === t.title));
+          setLikedSongs(prev => [...prev, ...newSongs]);
+      }
+  };
+
   return (
     <PlayerContext.Provider value={{
       isPlaying, volume, setVolume, currentTime, setCurrentTime,
       currentTrack, playQueue, isShuffle, setIsShuffle, repeatMode, setRepeatMode,
       togglePlay, handleNext, handlePrev, startAlbumPlayback,
       playlists, createPlaylist, addTrackToPlaylist, deletePlaylist, audioRef,
-      
+      toggleLikeMultiple,
       likedSongs, 
       toggleLike, 
       isLiked,

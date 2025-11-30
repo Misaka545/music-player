@@ -79,17 +79,26 @@ const PlayerBar = ({ onExpand }) => {
                  </button>
              </div>
              
-             <div className="w-full flex items-center gap-2 text-xs font-mono text-neutral-400">
-                 <span>{formatTime(currentTime)}</span>
-                 <div ref={progressBarRef} onClick={handleSeek} className="flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer group relative">
+             <div className="w-full flex items-center gap-2 text-xs font-medium font-mono text-neutral-400">
+                 <span className="min-w-[40px] text-right">{formatTime(currentTime)}</span>
+                 
+                 <div 
+                    ref={progressBarRef} 
+                    onClick={handleSeek} 
+                    className="flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer group relative flex items-center"
+                 >
+                     {/* Phần đã chạy (Màu trắng) */}
                      <div 
                         className="h-full bg-white rounded-full relative" 
                         style={{ width: `${(currentTime / (currentTrack.duration || 1)) * 100}%` }}
                      >
-                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow hidden group-hover:block"></div>
+                         {/* Nút tròn (Thumb): Căn chỉnh tuyệt đối để nằm chính giữa */}
+                         <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"></div>
                      </div>
                  </div>
-                 <span>{formatTime(currentTrack.duration)}</span>
+                 
+                 {/* Tổng thời gian */}
+                 <span className="min-w-[40px] text-left">{formatTime(currentTrack.duration)}</span>
              </div>
         </div>
 

@@ -3,28 +3,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Heart, MoreHorizontal, Disc, Plus, Check, Trash2, Image as ImageIcon, Upload } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
-import CustomModal from './CustomModal'; 
+import CustomModal from './CustomModal';
 
-const AlbumDetail = ({ album, onBack }) => { 
-  const { startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover } = usePlayer();
+const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => { 
+  const { 
+      startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, 
+      toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover,
+      toggleLikeMultiple, likedSongs 
+  } = usePlayer();
   
+  // State quản lý các Menu
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, track: null });
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  // State quản lý Modal
+  const [isDeletePlaylistModalOpen, setIsDeletePlaylistModalOpen] = useState(false);
+  const [isDeleteAlbumModalOpen, setIsDeleteAlbumModalOpen] = useState(false);
   
   const menuRef = useRef(null);
   const settingsRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // --- LOGIC PHÂN LOẠI ALBUM ---
+  // 1. Là Playlist người dùng tạo?
   const isUserPlaylist = playlists.some(pl => pl.id === album.id);
+  // 2. Là Album upload (Không phải Playlist user, không phải Liked Songs)?
+  const isUploadedAlbum = !isUserPlaylist && album.name !== "Bài hát đã thích";
 
+  // --- LOGIC CHECK TRẠNG THÁI LIKE CẢ ALBUM ---
+  // Kiểm tra xem tất cả bài hát trong album này có nằm trong likedSongs chưa
+  const isAlbumLiked = album.tracks.length > 0 && album.tracks.every(t => likedSongs.some(ls => ls.title === t.title));
+
+  // Lock scroll khi mở context menu
   useEffect(() => {
     if (contextMenu.visible) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
     return () => { document.body.style.overflow = 'unset'; }
   }, [contextMenu.visible]);
 
+  // Click outside để đóng menu 3 chấm
   useEffect(() => {
       const handleClickOutside = (e) => {
           if (settingsRef.current && !settingsRef.current.contains(e.target)) {
@@ -46,13 +63,14 @@ const AlbumDetail = ({ album, onBack }) => {
     startAlbumPlayback(albumTracks, index);
   };
 
+  // --- CONTEXT MENU HANDLERS ---
   const handleContextMenu = (e, track) => {
       e.preventDefault();
       setContextMenu({ visible: true, x: e.clientX, y: e.clientY, track: track });
   };
   const closeContextMenu = () => setContextMenu({ ...contextMenu, visible: false });
 
-  const handleToggleLike = () => {
+  const handleToggleLikeSingle = () => {
       if (contextMenu.track) toggleLike(contextMenu.track);
       closeContextMenu();
   }
@@ -61,22 +79,30 @@ const AlbumDetail = ({ album, onBack }) => {
       closeContextMenu();
   };
 
-  const handleDeleteClick = () => {
-      setShowSettingsMenu(false); 
-      setIsDeleteModalOpen(true); 
+  // --- SETTINGS MENU HANDLERS (3 chấm) ---
+  
+  // 1. Xử lý xóa Playlist (Cũ)
+  const handleDeletePlaylistClick = () => {
+      setShowSettingsMenu(false);
+      setIsDeletePlaylistModalOpen(true);
   };
-
   const confirmDeletePlaylist = () => {
       deletePlaylist(album.id);
-      setIsDeleteModalOpen(false);
-
-      if (onBack) {
-          setTimeout(() => {
-              onBack(); 
-          }, 100);
-      }
+      setIsDeletePlaylistModalOpen(false);
+      if (onBack) setTimeout(() => onBack(), 100);
   };
 
+  // 2. Xử lý xóa Album Upload (Mới)
+  const handleDeleteAlbumClick = () => {
+      setShowSettingsMenu(false);
+      setIsDeleteAlbumModalOpen(true);
+  };
+  const confirmDeleteAlbum = () => {
+      if (onDeleteAlbum) onDeleteAlbum(); // Gọi hàm từ App.jsx truyền xuống
+      setIsDeleteAlbumModalOpen(false);
+  };
+
+  // 3. Đổi ảnh bìa Playlist
   const handleCoverUpload = (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -86,10 +112,16 @@ const AlbumDetail = ({ album, onBack }) => {
       }
   };
 
+  // 4. Toggle Like cả Album (Nút Tim to)
+  const handleLikeAlbum = () => {
+      toggleLikeMultiple(album.tracks);
+  };
+
   const isContextMenuTrackLiked = contextMenu.track ? checkIsLiked(contextMenu.track) : false;
 
   return (
     <div className="animate-in fade-in duration-300 pb-8 relative">
+        {/* Header Album */}
         <div className="flex flex-col md:flex-row items-end gap-6 mb-6 px-6 pt-6">
             <div className="w-52 h-52 shadow-2xl shadow-black/50 flex-shrink-0 mx-auto md:mx-0 group relative">
                 {album.coverArt ? (
@@ -131,9 +163,23 @@ const AlbumDetail = ({ album, onBack }) => {
                 <button onClick={() => handlePlay(0)} className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg text-black">
                     <Play size={28} fill="currentColor" className="ml-1" />
                 </button>
-                <Heart size={32} className="text-neutral-400 hover:text-white cursor-pointer" />
                 
-                {/* Menu 3 chấm */}
+                {/* --- NÚT TIM TO (LIKE/UNLIKE ALL) --- */}
+                {/* Ẩn nếu là playlist Liked Songs */}
+                {album.name !== "Bài hát đã thích" && (
+                    <button 
+                        onClick={handleLikeAlbum}
+                        title={isAlbumLiked ? "Bỏ thích tất cả" : "Thêm tất cả vào yêu thích"}
+                        className="hover:scale-105 transition-transform"
+                    >
+                        <Heart 
+                            size={32} 
+                            className={`${isAlbumLiked ? 'text-green-500 fill-green-500' : 'text-neutral-400 hover:text-white'} transition-colors`} 
+                        />
+                    </button>
+                )}
+                
+                {/* --- MENU 3 CHẤM --- */}
                 <div className="relative" ref={settingsRef}>
                     <MoreHorizontal 
                         size={32} 
@@ -143,7 +189,9 @@ const AlbumDetail = ({ album, onBack }) => {
                     
                     {showSettingsMenu && (
                         <div className="absolute top-10 left-0 bg-[#282828] border border-[#3e3e3e] rounded shadow-xl p-1 z-30 w-48 animate-in fade-in zoom-in-95 duration-100">
-                             {isUserPlaylist ? (
+                             
+                             {/* Tùy chọn cho Playlist User */}
+                             {isUserPlaylist && (
                                  <>
                                     <button 
                                         onClick={() => fileInputRef.current.click()}
@@ -152,16 +200,29 @@ const AlbumDetail = ({ album, onBack }) => {
                                         <Upload size={16} />
                                         <span>Thay đổi ảnh bìa</span>
                                     </button>
-                                    
                                     <button 
-                                        onClick={handleDeleteClick}
+                                        onClick={handleDeletePlaylistClick}
                                         className="w-full text-left px-3 py-2.5 hover:bg-[#3e3e3e] rounded-sm text-sm text-white transition-colors flex items-center gap-2"
                                     >
                                         <Trash2 size={16} />
                                         <span>Xóa Playlist</span>
                                     </button>
                                  </>
-                             ) : (
+                             )}
+
+                             {/* Tùy chọn cho Album Upload */}
+                             {isUploadedAlbum && (
+                                 <button 
+                                    onClick={handleDeleteAlbumClick}
+                                    className="w-full text-left px-3 py-2.5 hover:bg-[#3e3e3e] rounded-sm text-sm text-white transition-colors flex items-center gap-2"
+                                 >
+                                     <Trash2 size={16} />
+                                     <span>Xóa Album</span>
+                                 </button>
+                             )}
+
+                             {/* Fallback nếu không có option nào */}
+                             {!isUserPlaylist && !isUploadedAlbum && (
                                  <div className="px-3 py-2 text-sm text-neutral-400 italic">Không có tùy chọn</div>
                              )}
                         </div>
@@ -178,6 +239,7 @@ const AlbumDetail = ({ album, onBack }) => {
             </div>
         </div>
 
+        {/* Tracklist */}
         <div className="w-full text-left text-neutral-400 text-sm mt-2 px-2">
             {albumTracks.map((track, i) => {
                 const isActive = currentTrack.title === track.title;
@@ -216,6 +278,7 @@ const AlbumDetail = ({ album, onBack }) => {
             })}
         </div>
         
+        {/* Context Menu (Chuột phải vào bài hát) */}
         {contextMenu.visible && (
             <>
                 <div 
@@ -228,7 +291,10 @@ const AlbumDetail = ({ album, onBack }) => {
                     style={{ top: contextMenu.y, left: contextMenu.x }} 
                 >
                     <div className="p-1 flex flex-col gap-1">
-                        <button onClick={handleToggleLike} className="w-full text-left px-3 py-2.5 hover:bg-[#3e3e3e] rounded-sm text-sm text-white transition-colors flex items-center gap-3">
+                        <button 
+                            onClick={handleToggleLikeSingle}
+                            className="w-full text-left px-3 py-2.5 hover:bg-[#3e3e3e] rounded-sm text-sm text-white transition-colors flex items-center gap-3"
+                        >
                             <Heart size={16} className={isContextMenuTrackLiked ? "text-green-500 fill-green-500" : "text-neutral-400"} />
                             <span className="font-medium">{isContextMenuTrackLiked ? "Xóa khỏi Yêu thích" : "Thêm vào Yêu thích"}</span>
                         </button>
@@ -259,17 +325,33 @@ const AlbumDetail = ({ album, onBack }) => {
             </>
         )}
 
+        {/* --- MODAL 1: XÓA PLAYLIST (USER) --- */}
         <CustomModal
-            isOpen={isDeleteModalOpen}
+            isOpen={isDeletePlaylistModalOpen}
             title="Xóa Playlist"
             onConfirm={confirmDeletePlaylist}
-            onCancel={() => setIsDeleteModalOpen(false)}
+            onCancel={() => setIsDeletePlaylistModalOpen(false)}
             confirmText="Xóa"
             cancelText="Hủy"
         >
             <div className="text-neutral-300">
                 Bạn có chắc muốn xóa playlist <span className="font-bold text-white">"{album.name}"</span> không?
                 <p className="text-xs text-neutral-500 mt-2">Thao tác này không thể hoàn tác.</p>
+            </div>
+        </CustomModal>
+
+        {/* --- MODAL 2: XÓA ALBUM (UPLOAD) --- */}
+        <CustomModal
+            isOpen={isDeleteAlbumModalOpen}
+            title="Xóa Album"
+            onConfirm={confirmDeleteAlbum}
+            onCancel={() => setIsDeleteAlbumModalOpen(false)}
+            confirmText="Xóa vĩnh viễn"
+            cancelText="Hủy"
+        >
+            <div className="text-neutral-300">
+                Bạn có chắc muốn xóa album <span className="font-bold text-white">"{album.name}"</span> khỏi thư viện?
+                <p className="text-xs text-neutral-500 mt-2">Dữ liệu bài hát sẽ bị xóa khỏi bộ nhớ.</p>
             </div>
         </CustomModal>
     </div>
