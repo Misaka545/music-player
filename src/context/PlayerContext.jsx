@@ -36,7 +36,6 @@ export const PlayerProvider = ({ children }) => {
 
   const audioRef = useRef(null);
 
-  // ... (Giữ nguyên useEffect và các hàm Audio Logic cũ: playTrack, togglePlay...)
   useEffect(() => {
     localStorage.setItem('my_playlists', JSON.stringify(playlists));
   }, [playlists]);
@@ -123,6 +122,15 @@ export const PlayerProvider = ({ children }) => {
       }));
   };
 
+  const updatePlaylistCover = (playlistId, newCoverUrl) => {
+      setPlaylists(prev => prev.map(pl => {
+          if (pl.id === playlistId) {
+              return { ...pl, coverArt: newCoverUrl };
+          }
+          return pl;
+      }));
+  };
+
   const deletePlaylist = (playlistId) => {
       setPlaylists(prev => prev.filter(pl => pl.id !== playlistId));
   };
@@ -157,7 +165,8 @@ export const PlayerProvider = ({ children }) => {
       likedSongs, 
       toggleLike, 
       isLiked,
-      checkIsLiked // Export hàm này để dùng trong Context Menu
+      checkIsLiked,
+      updatePlaylistCover
     }}>
       {children}
       <audio 

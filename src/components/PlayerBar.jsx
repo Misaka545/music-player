@@ -24,7 +24,8 @@ const PlayerBar = ({ onExpand }) => {
   };
 
   return (
-    <div className="h-24 bg-[#181818] border-t border-[#282828] px-4 grid grid-cols-[1fr_2fr_1fr] items-center z-50">
+    // ĐÃ XÓA: border-t border-[#282828]
+    <div className="h-24 bg-black px-4 grid grid-cols-[1fr_2fr_1fr] items-center z-50">
         
         {/* Left: Track Info */}
         <div className="flex items-center gap-4 min-w-0">
@@ -52,9 +53,8 @@ const PlayerBar = ({ onExpand }) => {
                  <div className="text-xs text-neutral-400 hover:text-white hover:underline cursor-pointer truncate">{currentTrack.artist || "---"}</div>
              </div>
              
-             {/* --- SỬA LỖI NÚT LIKE TẠI ĐÂY --- */}
              <button 
-                onClick={() => toggleLike()} // Sửa thành arrow function để không truyền Event object vào
+                onClick={() => toggleLike()}
                 className={`ml-2 ${isLiked ? 'text-green-500' : 'text-neutral-400 hover:text-white'}`}
                 title={isLiked ? "Xóa khỏi Yêu thích" : "Lưu vào Yêu thích"}
              >
@@ -83,7 +83,10 @@ const PlayerBar = ({ onExpand }) => {
              <div className="w-full flex items-center gap-2 text-xs font-mono text-neutral-400">
                  <span>{formatTime(currentTime)}</span>
                  <div ref={progressBarRef} onClick={handleSeek} className="flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer group relative">
-                     <div className="h-full bg-white group-hover:bg-green-500 rounded-full relative" style={{ width: `${(currentTime / (currentTrack.duration || 1)) * 100}%` }}>
+                     <div 
+                        className="h-full bg-white rounded-full relative" 
+                        style={{ width: `${(currentTime / (currentTrack.duration || 1)) * 100}%` }}
+                     >
                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow hidden group-hover:block"></div>
                      </div>
                  </div>
@@ -98,8 +101,25 @@ const PlayerBar = ({ onExpand }) => {
                  <input 
                     type="range" min="0" max="1" step="0.01" 
                     value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-[#4d4d4d] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0 group-hover:[&::-webkit-slider-thumb]:w-3 group-hover:[&::-webkit-slider-thumb]:h-3 group-hover:[&::-webkit-slider-thumb]:bg-white group-hover:[&::-webkit-slider-thumb]:rounded-full"
+                    style={{
+                        background: `linear-gradient(to right, white 0%, white ${volume * 100}%, #4d4d4d ${volume * 100}%, #4d4d4d 100%)`
+                    }}
+                    className="w-full h-1 rounded-lg appearance-none cursor-pointer group-hover:h-1"
                  />
+                 <style>{`
+                    input[type='range']::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        width: 0;
+                        height: 0;
+                        background: white;
+                        border-radius: 50%;
+                        transition: all 0.1s;
+                    }
+                    .group:hover input[type='range']::-webkit-slider-thumb {
+                        width: 12px;
+                        height: 12px;
+                    }
+                 `}</style>
              </div>
         </div>
       </div>
