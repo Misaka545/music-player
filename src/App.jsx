@@ -167,6 +167,14 @@ const AppContent = () => {
       tracks: likedSongs
   };
 
+   const handleImportMusic = (e) => {
+    const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/') || f.name.endsWith('.flac'));
+    if (files.length > 0) {
+        setUploadModal({ open: true, files: files });
+    }
+    e.target.value = null; 
+  };
+
   const searchResults = useMemo(() => {
       if (!searchQuery.trim()) return { tracks: [], albums: [], playlists: [] };
       const query = searchQuery.toLowerCase();
@@ -191,7 +199,7 @@ const AppContent = () => {
         <div className="flex-1 flex min-h-0">
           <Sidebar 
             libraryAlbums={libraryAlbums}
-            onUpload={handleFolderUpload}
+            onUpload={handleImportMusic}
             onViewChange={setActiveView}
             onAlbumSelect={navigateToAlbum}
           />

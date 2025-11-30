@@ -1,15 +1,35 @@
 // src/components/Sidebar.jsx
-import React, { useState, useRef } from 'react';
-import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, FileAudio, Folder } from 'lucide-react'; 
 import { usePlayer } from '../context/PlayerContext';
-import CustomModal from './CustomModal'; 
+import CustomModal from './CustomModal';
 
 const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
   const { playlists, createPlaylist, likedSongs } = usePlayer();
 
+  // State cho Modal tạo playlist
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
+
+  // State cho Menu Upload (Mới)
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  
+  // Refs cho 2 loại input
+  const folderInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const uploadMenuRef = useRef(null);
+
+  // Đóng menu upload khi click ra ngoài
+  useEffect(() => {
+      const handleClickOutside = (e) => {
+          if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target)) {
+              setShowUploadMenu(false);
+          }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCreateClick = () => {
       setNewPlaylistName(""); 
@@ -21,6 +41,16 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
           createPlaylist(newPlaylistName);
           setFilterMode('playlists');
           setIsModalOpen(false);
+      }
+  };
+
+  // Hàm kích hoạt input
+  const triggerUpload = (type) => {
+      setShowUploadMenu(false);
+      if (type === 'folder' && folderInputRef.current) {
+          folderInputRef.current.click();
+      } else if (type === 'file' && fileInputRef.current) {
+          fileInputRef.current.click();
       }
   };
 
@@ -37,19 +67,69 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                         <Search size={24} />
                         <span className="font-bold">Tìm kiếm</span>
                     </div>
-                    <label className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors group">
-                        <div className="relative">
-                            <FolderPlus size={24} className="group-hover:text-green-500 transition-colors" />
+
+                    {/* --- MENU THÊM NHẠC (SỬA ĐỔI) --- */}
+                    <div className="relative" ref={uploadMenuRef}>
+                        <div 
+                            onClick={() => setShowUploadMenu(!showUploadMenu)}
+                            className={`flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors group ${showUploadMenu ? 'text-white' : ''}`}
+                        >
+                            <div className="relative">
+                                <FolderPlus size={24} className="group-hover:text-green-500 transition-colors" />
+                            </div>
+                            <span className="font-bold flex-1">Thêm nhạc</span>
                         </div>
-                        <span className="font-bold flex-1">Thêm nhạc</span>
-                        <input type="file" webkitdirectory="true" directory="" multiple onChange={onUpload} className="hidden" />
-                    </label>
+
+                        {/* Dropdown Menu */}
+                        {showUploadMenu && (
+                            <div className="absolute top-8 left-0 w-full bg-[#282828] border border-[#3e3e3e] rounded shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                                <button 
+                                    onClick={() => triggerUpload('folder')}
+                                    className="w-full text-left px-4 py-3 hover:bg-[#3e3e3e] text-sm text-white transition-colors flex items-center gap-3 border-b border-white/5"
+                                >
+                                    <Folder size={18} className="text-neutral-400" />
+                                    <span>Tải lên Thư mục</span>
+                                </button>
+                                <button 
+                                    onClick={() => triggerUpload('file')}
+                                    className="w-full text-left px-4 py-3 hover:bg-[#3e3e3e] text-sm text-white transition-colors flex items-center gap-3"
+                                >
+                                    <FileAudio size={18} className="text-neutral-400" />
+                                    <span>Tải lên Bài hát</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Input ẩn cho Folder */}
+                    <input 
+                        type="file" 
+                        webkitdirectory="true" 
+                        directory="" 
+                        multiple 
+                        ref={folderInputRef}
+                        onChange={onUpload} 
+                        className="hidden" 
+                    />
+                    
+                    {/* Input ẩn cho File lẻ (Mới) */}
+                    <input 
+                        type="file" 
+                        multiple 
+                        accept="audio/*,.flac"
+                        ref={fileInputRef}
+                        onChange={onUpload} 
+                        className="hidden" 
+                    />
+                    {/* ---------------------------------- */}
+
                     <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors">
                         <Heart size={24} />
                         <span className="font-bold">Yêu thích</span>
                     </div>
                 </div>
 
+                {/* ... (Phần Library List giữ nguyên) ... */}
                 <div className="flex-1 flex flex-col overflow-hidden px-2 pb-2">
                     <div className="flex items-center justify-between px-2 mb-2">
                         <div className="flex gap-2 overflow-x-auto no-scrollbar">
@@ -102,7 +182,6 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
             </div>
         </div>
 
-        {/* --- CUSTOM MODAL TẠO PLAYLIST --- */}
         <CustomModal
             isOpen={isModalOpen}
             title="Tạo Playlist mới"

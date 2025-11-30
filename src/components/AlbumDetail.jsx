@@ -257,9 +257,9 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
                             {isActive ? (
                                 <div className="relative w-10 h-10 shadow-lg">
                                     <img src={track.coverArt} className="w-full h-full object-cover rounded" alt="playing" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded">
-                                        <img src="https://open.spotifycdn.com/cdn/images/equaliser-animated-green.f93a2bf4.gif" className="w-4 h-4" alt="eq" />
-                                    </div>
+                                    {/* <div className="absolute inset-0 bg-transparent flex items-center justify-center rounded">
+                                        <img src="https://e7.pngegg.com/pngimages/438/952/png-clipart-konata-izumi-lucky-star-anime-otaku-anime-white-photography-thumbnail.png" className="w-4 h-4" alt="eq" />
+                                    </div> */}
                                 </div>
                             ) : (
                                 <div className="w-10 text-center flex items-center justify-center">
