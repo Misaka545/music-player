@@ -1,18 +1,30 @@
 // src/components/LibraryGrid.jsx
 import React from 'react';
-import { Play, Disc, FolderOpen } from 'lucide-react';
+import { Play, Disc, FolderPlus, ListMusic } from 'lucide-react';
+import { usePlayer } from '../context/PlayerContext'; // 1. Import Context
 
-const LibraryGrid = ({ albums, onSelect, onUpload }) => {
-  const albumList = Object.values(albums);
+const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults }) => {
+  // 2. Lấy hàm startAlbumPlayback từ Context
+  const { startAlbumPlayback } = usePlayer();
 
-  if (albumList.length === 0) {
+  // Logic chọn dữ liệu hiển thị (Search hoặc Library)
+  let displayAlbums = isSearchMode ? searchResults.albums : Object.values(albums);
+  
+  // Hàm xử lý khi bấm nút Play nhỏ
+  const handlePlayClick = (e, album) => {
+      e.stopPropagation(); // 3. Quan trọng: Ngăn không cho click xuyên qua thẻ cha (tránh chuyển trang)
+      if (album.tracks && album.tracks.length > 0) {
+          startAlbumPlayback(album.tracks, 0); // Phát bài đầu tiên trong album
+      }
+  };
+
+  if (!isSearchMode && displayAlbums.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-white/10 rounded-lg animate-in fade-in">
-            <FolderOpen size={48} className="text-neutral-500 mb-4" />
-            <p className="text-lg font-bold">Chưa có album nào</p>
-            <label className="mt-4 px-6 py-2 bg-white text-black font-bold rounded-full hover:scale-105 cursor-pointer transition-transform">
-                Quét thư mục nhạc
-                <input type="file" webkitdirectory="true" directory="" multiple onChange={onUpload} className="hidden" />
+        <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[#333] bg-[#111]/50 rounded-lg">
+            <FolderPlus size={48} className="text-[#333] mb-4" />
+            <p className="text-lg font-bold text-[#555] tracking-widest">DATABASE_EMPTY</p>
+            <label className="mt-4 px-6 py-2 bg-[#222] border border-[#444] text-[#ccc] font-mono text-xs hover:bg-[#333] hover:text-white cursor-pointer transition-all">
+                INITIATE_SCAN <input type="file" webkitdirectory="true" directory="" multiple onChange={onUpload} className="hidden" />
             </label>
         </div>
       );
@@ -20,26 +32,36 @@ const LibraryGrid = ({ albums, onSelect, onUpload }) => {
 
   return (
     <div className="animate-in fade-in duration-300">
-        <h2 className="text-2xl font-bold text-white mb-6">Thư viện của bạn</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
-            {albumList.map((album, idx) => (
+        {!isSearchMode && <h2 className="text-xl font-bold text-white mb-6 font-futura tracking-widest uppercase border-l-4 border-[#FF6B35] pl-3">Library_Data</h2>}
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {displayAlbums.map((album, idx) => (
                 <div 
                     key={idx} 
-                    onClick={() => onSelect(album)}
-                    className="bg-[#181818] p-4 rounded-md hover:bg-[#282828] transition-colors cursor-pointer group flex flex-col"
+                    onClick={() => onSelect(album)} // Click vào thẻ -> Chuyển trang
+                    className="bg-[#161616] p-4 border border-[#333] hover:border-[#E8C060] transition-colors cursor-pointer group flex flex-col relative overflow-hidden"
                 >
-                    <div className="relative aspect-square mb-4 bg-[#333] shadow-lg rounded-md overflow-hidden">
-                        {album.coverArt ? <img src={album.coverArt} className="w-full h-full object-cover" /> : <Disc className="p-4 text-neutral-500 w-full h-full" />}
+                    {/* Tech Corner */}
+                    <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#333] group-hover:border-[#E8C060] transition-colors"></div>
+                    
+                    <div className="relative aspect-square mb-4 bg-[#222] overflow-hidden border border-[#2a2a2a]">
+                        {album.coverArt ? <img src={album.coverArt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <Disc className="p-8 text-[#333] w-full h-full" />}
                         
-                        {/* Hover Play Button (Visual only here, logic in Detail) */}
-                        <div className="absolute bottom-2 right-2 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 shadow-xl z-20">
-                            <button className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-black shadow-lg hover:scale-105">
-                                <Play size={24} fill="currentColor" className="ml-1" />
+                        {/* --- NÚT PLAY --- */}
+                        <div className="absolute bottom-2 right-2 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-20">
+                            <button 
+                                onClick={(e) => handlePlayClick(e, album)} // Gọi hàm xử lý play
+                                className="w-10 h-10 bg-[#EAEAEA] text-black flex items-center justify-center shadow-lg hover:scale-110 hover:bg-white transition-transform" 
+                                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                title="Phát ngay"
+                            >
+                                <Play size={20} fill="currentColor" className="ml-1" />
                             </button>
                         </div>
                     </div>
-                    <h3 className="font-bold text-white truncate mb-1">{album.name}</h3>
-                    <p className="text-sm text-neutral-400 truncate line-clamp-2">{album.artist}</p>
+                    
+                    <h3 className="font-bold text-white truncate mb-1 text-sm tracking-wide">{album.name}</h3>
+                    <p className="text-[10px] text-[#666] font-mono truncate uppercase">{album.artist}</p>
                 </div>
             ))}
         </div>

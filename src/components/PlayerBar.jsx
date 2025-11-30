@@ -1,135 +1,148 @@
 // src/components/PlayerBar.jsx
 import React, { useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Heart, Shuffle, Repeat } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Volume1, VolumeX, Disc, Heart, Shuffle, Repeat, ListMusic, Maximize2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
 
-const PlayerBar = ({ onExpand }) => {
+// QUAN TRỌNG: Nhận 2 props này
+const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
   const { 
     isPlaying, currentTrack, volume, setVolume, currentTime, setCurrentTime,
     togglePlay, handleNext, handlePrev, isShuffle, setIsShuffle, repeatMode, setRepeatMode,
-    toggleLike, isLiked, audioRef
+    toggleLike, isLiked, audioRef, toggleMute, isMuted
   } = usePlayer();
 
   const progressBarRef = useRef(null);
 
-  const handleSeek = (e) => {
-    if (progressBarRef.current && audioRef.current && currentTrack.duration) {
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const width = rect.width;
-      audioRef.current.currentTime = (Math.min(Math.max(0, clickX / width), 1)) * currentTrack.duration;
-      setCurrentTime(audioRef.current.currentTime);
-    }
+  const handleSeekChange = (e) => {
+      const newTime = parseFloat(e.target.value);
+      setCurrentTime(newTime);
+      if (audioRef.current) audioRef.current.currentTime = newTime;
   };
 
+  const handleVolumeChange = (e) => {
+      setVolume(parseFloat(e.target.value));
+  };
+
+  const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
   return (
-    <div className="h-24 bg-black px-4 grid grid-cols-[1fr_2fr_1fr] items-center z-50">
-        
-        {/* Left: Track Info */}
-        <div className="flex items-center gap-4 min-w-0">
-             {currentTrack.coverArt ? (
-                 <div className="w-14 h-14 relative group cursor-pointer flex-shrink-0" onClick={onExpand}>
-                     <img 
-                        src={currentTrack.coverArt} 
-                        className="w-full h-full object-cover rounded-md shadow-lg" 
-                        alt="cover" 
-                     />
-                     <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center rounded-md transition-all">
-                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                     </div>
-                 </div>
-             ) : (
-                <div className="w-14 h-14 bg-[#282828] rounded-md flex-shrink-0 flex items-center justify-center">
-                    <Music size={24} className="text-neutral-500" />
-                </div>
-             )}
+      <div className="h-24 bg-[#0e0e10] border-t border-[#333] fixed bottom-0 left-0 right-0 z-50 flex items-center px-8 gap-10 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+          {/* Background Grid */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(90deg, #222 1px, transparent 1px)', backgroundSize: '20px 100%' }}></div>
 
-             <div className="flex flex-col justify-center min-w-0">
-                 <div className="font-sm font-medium text-white hover:underline cursor-pointer truncate">{currentTrack.title || "Chưa chọn bài hát"}</div>
-                 <div className="text-xs text-neutral-400 hover:text-white hover:underline cursor-pointer truncate">{currentTrack.artist || "---"}</div>
-             </div>
-             
-             <button 
-                onClick={() => toggleLike()}
-                className={`ml-2 ${isLiked ? 'text-green-500' : 'text-neutral-400 hover:text-white'}`}
-                title={isLiked ? "Xóa khỏi Yêu thích" : "Lưu vào Yêu thích"}
-             >
-                <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
-             </button>
-        </div>
+          {/* PROGRESS BAR */}
+          <div className="absolute -top-[6px] left-0 w-full h-[12px] group z-30 flex items-center cursor-pointer">
+              <div className="absolute top-[4px] left-0 w-full h-[4px] bg-[#1a1a1a] pointer-events-none">
+                  <div className="h-full bg-gradient-to-r from-[#FF6B35] via-[#E8C060] to-[#4FD6BE] relative" style={{ width: `${(currentTime / (currentTrack.duration || 1)) * 100}%` }}>
+                      <div className="absolute right-0 -top-2 bottom-0 w-1 h-6 bg-white shadow-[0_0_10px_white] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  </div>
+              </div>
+              <input type="range" min="0" max={currentTrack.duration || 0} step="0.1" value={currentTime} onChange={handleSeekChange} className="w-full h-full opacity-0 cursor-pointer z-40"/>
+          </div>
 
-        {/* Center: Controls */}
-        <div className="flex flex-col items-center max-w-2xl w-full mx-auto">
-             <div className="flex items-center gap-6 mb-2">
-                 <button onClick={() => setIsShuffle(!isShuffle)} className={`${isShuffle ? 'text-green-500' : 'text-neutral-400 hover:text-white'} transition-colors`}><Shuffle size={16} /></button>
-                 <button onClick={handlePrev} className="text-neutral-400 hover:text-white transition-colors"><SkipBack size={20} fill="currentColor" /></button>
-                 <button 
-                    onClick={togglePlay}
-                    className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-transform"
-                 >
-                     {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
-                 </button>
-                 <button onClick={handleNext} className="text-neutral-400 hover:text-white transition-colors"><SkipForward size={20} fill="currentColor" /></button>
-                 <button onClick={() => setRepeatMode((prev) => (prev + 1) % 3)} className={`relative ${repeatMode > 0 ? 'text-green-500' : 'text-neutral-400 hover:text-white'} transition-colors`}>
-                     <Repeat size={16} />
-                     {repeatMode === 2 && <span className="absolute -top-1.5 -right-1 text-[8px] font-bold">1</span>}
-                 </button>
-             </div>
-             
-             <div className="w-full flex items-center gap-2 text-xs font-medium font-mono text-neutral-400">
-                 <span className="min-w-[40px] text-right">{formatTime(currentTime)}</span>
-                 
-                 <div 
-                    ref={progressBarRef} 
-                    onClick={handleSeek} 
-                    className="flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer group relative flex items-center"
-                 >
-                     {/* Phần đã chạy (Màu trắng) */}
-                     <div 
-                        className="h-full bg-white rounded-full relative" 
-                        style={{ width: `${(currentTime / (currentTrack.duration || 1)) * 100}%` }}
-                     >
-                         {/* Nút tròn (Thumb): Căn chỉnh tuyệt đối để nằm chính giữa */}
-                         <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                     </div>
-                 </div>
-                 
-                 {/* Tổng thời gian */}
-                 <span className="min-w-[40px] text-left">{formatTime(currentTrack.duration)}</span>
-             </div>
-        </div>
-
-        {/* Right: Volume Only */}
-        <div className="flex items-center justify-end gap-3 text-neutral-400">
-             <div className="flex items-center gap-2 w-24 md:w-32 group">
-                 <Volume2 size={18} className="hover:text-white" />
-                 <input 
-                    type="range" min="0" max="1" step="0.01" 
-                    value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))}
-                    style={{
-                        background: `linear-gradient(to right, white 0%, white ${volume * 100}%, #4d4d4d ${volume * 100}%, #4d4d4d 100%)`
+          {/* LEFT: TRACK INFO */}
+          <div className="flex items-center gap-5 w-1/4 min-w-[200px] z-10">
+              {/* SỰ KIỆN 1: Click ảnh bìa -> Mở Album */}
+              <div 
+                className="w-14 h-14 bg-[#1a1a1a] border border-[#444] flex items-center justify-center relative overflow-hidden flex-shrink-0 group cursor-pointer" 
+                onClick={(e) => {
+                    e.stopPropagation(); // Ngăn chặn sự kiện nổi bọt (nếu có)
+                    onOpenAlbum();
+                }}
+                title="Đi tới Album"
+              >
+                  <div className="absolute inset-0 bg-[#FF6B35]/5 group-hover:bg-[#FF6B35]/20 transition-colors"></div>
+                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#FF6B35]"></div>
+                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#FF6B35]"></div>
+                  {currentTrack.coverArt ? (
+                      <img src={currentTrack.coverArt} className="w-full h-full object-cover p-[2px]" />
+                  ) : (
+                      <Disc size={28} className={`text-[#FF6B35] ${isPlaying ? 'animate-spin-slow' : ''}`} />
+                  )}
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                  <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-[#4FD6BE] text-black text-[9px] font-bold px-1 tracking-wider rounded-[1px]">{isPlaying ? 'PLAYING' : 'READY'}</span>
+                  </div>
+                  {/* SỰ KIỆN 1: Click tên bài -> Mở Album */}
+                  <span 
+                    className="text-base font-bold tracking-wide uppercase text-white truncate hover:text-[#E8C060] transition-colors cursor-pointer" 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenAlbum();
                     }}
-                    className="w-full h-1 rounded-lg appearance-none cursor-pointer group-hover:h-1"
-                 />
-                 <style>{`
-                    input[type='range']::-webkit-slider-thumb {
-                        -webkit-appearance: none;
-                        width: 0;
-                        height: 0;
-                        background: white;
-                        border-radius: 50%;
-                        transition: all 0.1s;
-                    }
-                    .group:hover input[type='range']::-webkit-slider-thumb {
-                        width: 12px;
-                        height: 12px;
-                    }
-                 `}</style>
-             </div>
-        </div>
+                    title="Đi tới Album"
+                  >
+                      {currentTrack.title || "NO_DATA"}
+                  </span>
+                  <span className="text-xs text-[#666] font-mono truncate tracking-wider">{currentTrack.artist || "UNKNOWN"}</span>
+              </div>
+          </div>
+
+          {/* CENTER: CONTROLS */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 z-10">
+              <div className="flex items-center gap-10">
+                  <div className="flex items-center gap-4">
+                      <button onClick={() => setIsShuffle(!isShuffle)} className={`w-8 h-8 flex items-center justify-center transition-colors ${isShuffle ? 'text-[#4FD6BE]' : 'text-[#444] hover:text-[#eee]'}`}><Shuffle size={16} /></button>
+                      <SkipBack size={24} className="text-[#888] hover:text-white cursor-pointer transition-colors" onClick={handlePrev} />
+                  </div>
+                  <div onClick={togglePlay} className="w-16 h-14 bg-[#EAEAEA] text-black flex items-center justify-center hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] hover:scale-105 transition-all cursor-pointer relative" style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' }}>
+                      <div className="absolute inset-1 border border-black/20" style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' }}></div>
+                      {isPlaying ? <Pause size={28} fill="currentColor" className="z-10"/> : <Play size={28} fill="currentColor" className="ml-1 z-10"/>}
+                  </div>
+                  <div className="flex items-center gap-4">
+                      <SkipForward size={24} className="text-[#888] hover:text-white cursor-pointer transition-colors" onClick={handleNext} />
+                      <button onClick={() => setRepeatMode((prev) => (prev + 1) % 3)} className={`w-8 h-8 flex items-center justify-center transition-colors relative ${repeatMode > 0 ? 'text-[#4FD6BE]' : 'text-[#444] hover:text-[#eee]'}`}>
+                          <Repeat size={16} />
+                          {repeatMode === 2 && <span className="absolute top-1 right-1 text-[8px] font-bold">1</span>}
+                      </button>
+                  </div>
+              </div>
+              <div className="flex justify-between w-full max-w-[200px] text-[9px] font-mono text-[#444]">
+                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(currentTrack.duration)}</span>
+              </div>
+          </div>
+
+          {/* RIGHT: VOLUME & EXTRAS */}
+          <div className="w-1/4 flex justify-end items-center gap-8 z-10 min-w-[250px]">
+              <div className="flex items-center gap-3 group relative w-32 h-8">
+                  <button onClick={toggleMute} className="text-[#555] group-hover:text-white transition-colors focus:outline-none">
+                      <VolumeIcon size={18} />
+                  </button>
+                  <div className="relative flex-1 h-full flex items-center">
+                      <div className="flex items-end gap-[2px] h-6 w-full pointer-events-none">
+                          {[...Array(20)].map((_, idx) => {
+                              const barColor = idx < 7 ? '#4FD6BE' : idx < 14 ? '#E8C060' : '#FF6B35';
+                              const isActive = (idx / 20) < volume && !isMuted;
+                              return (
+                                  <div key={idx} className="w-full bg-[#222] relative" style={{ height: '100%' }}>
+                                      <div className="w-full absolute bottom-0 transition-all duration-75" style={{ height: isActive ? '100%' : '0%', backgroundColor: barColor, opacity: isActive ? 1 : 0 }}></div>
+                                  </div>
+                              )
+                          })}
+                      </div>
+                      <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
+                  </div>
+              </div>
+
+              <div className="flex gap-4 text-[#555] border-l border-[#333] pl-6">
+                  <button onClick={() => toggleLike()} className={`transition-colors ${isLiked ? 'text-[#FF6B35]' : 'hover:text-[#FF6B35]'}`}><Heart size={20} fill={isLiked ? "currentColor" : "none"} /></button>
+                   <button 
+                    onClick={onToggleQueue} // Gán hàm mở Queue
+                    title="Hàng đợi"
+                    className="hover:text-[#E8C060] transition-colors cursor-pointer focus:outline-none"
+                  >
+                      <ListMusic size={20} />
+                  </button>
+                  
+                  {/* SỰ KIỆN 2: Click phóng to -> Mở Full Screen */}
+                  <button onClick={onToggleFullScreen} title="Toàn màn hình">
+                      <Maximize2 size={18} className="hover:text-[#4FD6BE] transition-colors cursor-pointer" />
+                  </button>
+              </div>
+          </div>
       </div>
   );
 };

@@ -1,201 +1,180 @@
-// src/components/Sidebar.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, FileAudio, Folder } from 'lucide-react'; 
+import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, Folder, FileAudio, Terminal } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
 
 const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
   const { playlists, createPlaylist, likedSongs } = usePlayer();
-
-  // State cho Modal tạo playlist
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
-
-  // State cho Menu Upload (Mới)
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   
-  // Refs cho 2 loại input
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const uploadMenuRef = useRef(null);
 
-  // Đóng menu upload khi click ra ngoài
   useEffect(() => {
       const handleClickOutside = (e) => {
-          if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target)) {
-              setShowUploadMenu(false);
-          }
+          if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target)) setShowUploadMenu(false);
       };
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleCreateClick = () => {
-      setNewPlaylistName(""); 
-      setIsModalOpen(true);
-  };
-
+  const handleCreateClick = () => { setNewPlaylistName(""); setIsModalOpen(true); };
   const confirmCreatePlaylist = () => {
-      if (newPlaylistName && newPlaylistName.trim() !== "") {
-          createPlaylist(newPlaylistName);
-          setFilterMode('playlists');
-          setIsModalOpen(false);
-      }
+      if (newPlaylistName.trim() !== "") { createPlaylist(newPlaylistName); setFilterMode('playlists'); setIsModalOpen(false); }
   };
-
-  // Hàm kích hoạt input
   const triggerUpload = (type) => {
       setShowUploadMenu(false);
-      if (type === 'folder' && folderInputRef.current) {
-          folderInputRef.current.click();
-      } else if (type === 'file' && fileInputRef.current) {
-          fileInputRef.current.click();
-      }
+      if (type === 'folder' && folderInputRef.current) folderInputRef.current.click();
+      else if (type === 'file' && fileInputRef.current) fileInputRef.current.click();
   };
 
   return (
     <>
-        <div className="w-64 flex flex-col py-2 pl-2 pr-0 h-full hidden md:flex">
-            <div className="flex-1 bg-[#121212] rounded-lg flex flex-col overflow-hidden">
-                <div className="p-4 flex flex-col gap-4">
-                    <div className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors" onClick={() => onViewChange('library')}>
-                        <Home size={24} />
-                        <span className="font-bold">Trang chủ</span>
+        <div className="w-64 flex flex-col gap-3 h-full hidden md:flex">
+            {/* LOGO AREA */}
+            <div className="h-16 bg-[#111] border border-[#333] flex flex-col justify-center relative overflow-hidden group cursor-default">
+                <div className="absolute top-0 right-0 p-1"><div className="w-1.5 h-1.5 bg-[#4FD6BE] rounded-full animate-pulse-tech"></div></div>
+                <div className="px-4 flex items-center gap-3">
+                    <div className="p-1.5 border border-[#FF6B35] rounded-[1px]">
+                        <Terminal size={16} color="#FF6B35" />
                     </div>
-                    <div className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors" onClick={() => onViewChange('search')}>
-                        <Search size={24} />
-                        <span className="font-bold">Tìm kiếm</span>
+                    <div>
+                        <div className="font-bold tracking-[0.2em] text-xs text-white">MUSIC_PLAYER</div>
+                        <div className="text-[8px] text-[#4FD6BE] font-mono tracking-wider">TERMINAL_V4</div>
                     </div>
+                </div>
+                <div className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#FF6B35] group-hover:w-full transition-all duration-500"></div>
+            </div>
 
-                    {/* --- MENU THÊM NHẠC (SỬA ĐỔI) --- */}
-                    <div className="relative" ref={uploadMenuRef}>
-                        <div 
-                            onClick={() => setShowUploadMenu(!showUploadMenu)}
-                            className={`flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors group ${showUploadMenu ? 'text-white' : ''}`}
-                        >
-                            <div className="relative">
-                                <FolderPlus size={24} className="group-hover:text-green-500 transition-colors" />
+            {/* UNIFIED MENU BOX */}
+            <div className="flex-1 bg-[#0e0e10]/90 border border-[#333] backdrop-blur-sm p-0 flex flex-col overflow-hidden relative">
+                {/* Tech Deco Lines */}
+                <div className="absolute top-4 right-2 w-8 h-[1px] bg-[#333]"></div>
+                
+                {/* 1. NAVIGATION */}
+                <div className="p-4 pb-2 border-b border-[#222]">
+                    <div className="text-[9px] text-[#4FD6BE] font-mono mb-2 flex items-center gap-2 select-none">
+                        <span className="w-2 h-[1px] bg-[#4FD6BE]"></span> SYSTEM_NAV
+                    </div>
+                    {/* Items */}
+                    {[
+                        { label: 'TRANG CHỦ', icon: Home, action: () => onViewChange('library') },
+                        { label: 'TÌM KIẾM', icon: Search, action: () => onViewChange('search') }
+                    ].map((item, idx) => (
+                        <div key={idx} onClick={item.action} className="flex items-center justify-between p-2 hover:bg-white/5 cursor-pointer group border-l-2 border-transparent hover:border-[#FF6B35] transition-all mb-1">
+                            <div className="flex items-center gap-3">
+                                <item.icon size={16} className="text-[#555] group-hover:text-white transition-colors"/>
+                                <span className="text-xs font-bold tracking-widest text-[#999] group-hover:text-white transition-colors">{item.label}</span>
                             </div>
-                            <span className="font-bold flex-1">Thêm nhạc</span>
                         </div>
+                    ))}
 
-                        {/* Dropdown Menu */}
+                    {/* UPLOAD DROPDOWN */}
+                    <div className="relative" ref={uploadMenuRef}>
+                        <div onClick={() => setShowUploadMenu(!showUploadMenu)} className={`flex items-center justify-between p-2 hover:bg-white/5 cursor-pointer group border-l-2 border-transparent hover:border-[#FF6B35] transition-all mb-1 ${showUploadMenu ? 'bg-white/5 border-[#FF6B35]' : ''}`}>
+                            <div className="flex items-center gap-3">
+                                <FolderPlus size={16} className="text-[#555] group-hover:text-white transition-colors" />
+                                <span className="text-xs font-bold tracking-widest text-[#999] group-hover:text-white transition-colors">THÊM NHẠC</span>
+                            </div>
+                        </div>
                         {showUploadMenu && (
-                            <div className="absolute top-8 left-0 w-full bg-[#282828] border border-[#3e3e3e] rounded shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                                <button 
-                                    onClick={() => triggerUpload('folder')}
-                                    className="w-full text-left px-4 py-3 hover:bg-[#3e3e3e] text-sm text-white transition-colors flex items-center gap-3 border-b border-white/5"
-                                >
-                                    <Folder size={18} className="text-neutral-400" />
-                                    <span>Tải lên Thư mục</span>
-                                </button>
-                                <button 
-                                    onClick={() => triggerUpload('file')}
-                                    className="w-full text-left px-4 py-3 hover:bg-[#3e3e3e] text-sm text-white transition-colors flex items-center gap-3"
-                                >
-                                    <FileAudio size={18} className="text-neutral-400" />
-                                    <span>Tải lên Bài hát</span>
-                                </button>
+                            <div className="absolute top-full left-2 right-0 bg-[#1a1a1a] border border-[#333] z-20 shadow-xl">
+                                <button onClick={() => triggerUpload('folder')} className="w-full text-left px-3 py-2 text-[10px] text-[#ccc] hover:bg-[#333] tracking-wider border-b border-[#222]">SCAN_FOLDER</button>
+                                <button onClick={() => triggerUpload('file')} className="w-full text-left px-3 py-2 text-[10px] text-[#ccc] hover:bg-[#333] tracking-wider">SCAN_FILES</button>
                             </div>
                         )}
                     </div>
+                    <input type="file" webkitdirectory="true" directory="" multiple ref={folderInputRef} onChange={onUpload} className="hidden" />
+                    <input type="file" multiple accept="audio/*,.flac" ref={fileInputRef} onChange={onUpload} className="hidden" />
 
-                    {/* Input ẩn cho Folder */}
-                    <input 
-                        type="file" 
-                        webkitdirectory="true" 
-                        directory="" 
-                        multiple 
-                        ref={folderInputRef}
-                        onChange={onUpload} 
-                        className="hidden" 
-                    />
-                    
-                    {/* Input ẩn cho File lẻ (Mới) */}
-                    <input 
-                        type="file" 
-                        multiple 
-                        accept="audio/*,.flac"
-                        ref={fileInputRef}
-                        onChange={onUpload} 
-                        className="hidden" 
-                    />
-                    {/* ---------------------------------- */}
-
-                    <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-4 text-white/70 hover:text-white cursor-pointer transition-colors">
-                        <Heart size={24} />
-                        <span className="font-bold">Yêu thích</span>
+                    <div onClick={() => onViewChange('liked-songs')} className="flex items-center justify-between p-2 hover:bg-white/5 cursor-pointer group border-l-2 border-transparent hover:border-[#FF6B35] transition-all">
+                        <div className="flex items-center gap-3">
+                            <Heart size={16} className="text-[#555] group-hover:text-white transition-colors" />
+                            <span className="text-xs font-bold tracking-widest text-[#999] group-hover:text-white transition-colors">YÊU THÍCH</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* ... (Phần Library List giữ nguyên) ... */}
-                <div className="flex-1 flex flex-col overflow-hidden px-2 pb-2">
-                    <div className="flex items-center justify-between px-2 mb-2">
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                            <span onClick={() => setFilterMode('playlists')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${filterMode === 'playlists' ? 'bg-white text-black' : 'bg-[#232323] hover:bg-[#2a2a2a] text-white'}`}>Playlists</span>
-                            <span onClick={() => setFilterMode('albums')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${filterMode === 'albums' ? 'bg-white text-black' : 'bg-[#232323] hover:bg-[#2a2a2a] text-white'}`}>Albums</span>
+                {/* 2. DATA LIST (Playlists/Albums) */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="px-4 py-3 flex items-center justify-between">
+                        <div className="text-[9px] text-[#E8C060] font-mono flex items-center gap-2 select-none">
+                            <span className="w-2 h-[1px] bg-[#E8C060]"></span> DATA_BANK
                         </div>
-                        <button onClick={handleCreateClick} className="p-1 hover:bg-[#2a2a2a] rounded-full text-neutral-400 hover:text-white transition-colors" title="Tạo playlist">
-                            <Plus size={20} />
-                        </button>
+                        <Plus size={14} className="text-[#555] hover:text-white cursor-pointer" onClick={handleCreateClick} title="CREATE_LIST"/>
+                    </div>
+                    
+                    {/* Filters */}
+                    <div className="flex gap-1 px-4 mb-2">
+                        {['playlists', 'albums'].map(mode => (
+                            <button 
+                                key={mode} 
+                                onClick={() => setFilterMode(mode)}
+                                className={`px-2 py-1 text-[9px] uppercase tracking-wider font-mono border ${filterMode === mode ? 'border-[#E8C060] text-[#E8C060] bg-[#E8C060]/10' : 'border-[#333] text-[#555] hover:border-[#666]'}`}
+                            >
+                                {mode}
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar px-2">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2">
                         {filterMode === 'playlists' && (
                             <>
-                                <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-3 p-2 hover:bg-[#1a1a1a] rounded-md cursor-pointer group">
-                                    <div className="w-12 h-12 rounded bg-gradient-to-br from-indigo-600 to-blue-800 flex items-center justify-center flex-shrink-0 shadow-lg">
-                                        <Heart size={20} fill="white" className="text-white" />
+                                <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
+                                    <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] transition-colors">
+                                        <Heart size={12} className="text-[#E8C060]" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-medium text-white truncate group-hover:text-green-500 transition-colors">Bài hát đã thích</h4>
-                                        <p className="text-xs text-neutral-400 truncate">Playlist • {likedSongs.length} bài hát</p>
+                                        <h4 className="text-[11px] font-bold text-[#ccc] group-hover:text-white truncate">FAVORITES</h4>
+                                        <p className="text-[9px] font-mono text-[#555] truncate">{likedSongs.length} UNITS</p>
                                     </div>
                                 </div>
                                 {playlists.map((pl) => (
-                                    <div key={pl.id} onClick={() => onAlbumSelect(pl)} className="flex items-center gap-3 p-2 hover:bg-[#1a1a1a] rounded-md cursor-pointer group">
-                                        <div className="w-12 h-12 rounded bg-[#333] flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                        {pl.coverArt ? <img src={pl.coverArt} className="w-full h-full object-cover" alt="cover" /> : <ListMusic size={24} className="text-neutral-500" />}
+                                    <div key={pl.id} onClick={() => onAlbumSelect(pl)} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
+                                        <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
+                                            {pl.coverArt ? <img src={pl.coverArt} className="w-full h-full object-cover" /> : <ListMusic size={12} className="text-[#555]" />}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h4 className="text-sm font-medium text-white truncate group-hover:text-green-500 transition-colors">{pl.name}</h4>
-                                            <p className="text-xs text-neutral-400 truncate">Playlist • {pl.tracks.length} bài hát</p>
+                                            <h4 className="text-[11px] font-bold text-[#ccc] group-hover:text-white truncate">{pl.name}</h4>
+                                            <p className="text-[9px] font-mono text-[#555] truncate">{pl.tracks.length} UNITS</p>
                                         </div>
                                     </div>
                                 ))}
                             </>
                         )}
                         {filterMode === 'albums' && Object.values(libraryAlbums).map((album, idx) => (
-                            <div key={idx} onClick={() => onAlbumSelect(album)} className="flex items-center gap-3 p-2 hover:bg-[#1a1a1a] rounded-md cursor-pointer group">
-                                    <div className="w-12 h-12 rounded bg-[#333] flex-shrink-0 overflow-hidden">
-                                    {album.coverArt ? <img src={album.coverArt} className="w-full h-full object-cover" alt="cover" /> : <Disc className="p-2 text-neutral-500 w-full h-full" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-medium text-white truncate group-hover:text-green-500 transition-colors">{album.name}</h4>
-                                        <p className="text-xs text-neutral-400 truncate">Album • {album.artist}</p>
-                                    </div>
+                            <div key={idx} onClick={() => onAlbumSelect(album)} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
+                                <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
+                                    {album.coverArt ? <img src={album.coverArt} className="w-full h-full object-cover" /> : <Disc size={12} className="text-[#555]" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-[11px] font-bold text-[#ccc] group-hover:text-white truncate">{album.name}</h4>
+                                    <p className="text-[9px] font-mono text-[#555] truncate">{album.artist}</p>
+                                </div>
                             </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 3. VISUALIZER DECO */}
+                <div className="h-10 border-t border-[#333] flex items-end justify-between px-4 pb-2 bg-[#0a0a0a]">
+                    <div className="flex items-end gap-[2px] h-4 w-full">
+                        {[40, 70, 30, 80, 50, 90, 20, 60, 40, 70, 30, 50].map((h, i) => (
+                            <div key={i} className="flex-1 bg-[#222] hover:bg-[#4FD6BE] transition-colors duration-500" style={{ height: `${h}%` }}></div>
                         ))}
                     </div>
                 </div>
             </div>
         </div>
 
-        <CustomModal
-            isOpen={isModalOpen}
-            title="Tạo Playlist mới"
-            onConfirm={confirmCreatePlaylist}
-            onCancel={() => setIsModalOpen(false)}
-            confirmText="Tạo mới"
-        >
+        <CustomModal isOpen={isModalOpen} title="NEW_PLAYLIST_ENTRY" onConfirm={confirmCreatePlaylist} onCancel={() => setIsModalOpen(false)} confirmText="INITIALIZE">
             <input 
-                type="text" 
-                placeholder="Nhập tên playlist..." 
-                value={newPlaylistName}
-                onChange={(e) => setNewPlaylistName(e.target.value)}
-                autoFocus
-                className="w-full bg-[#3e3e3e] text-white p-3 rounded-md outline-none focus:ring-2 focus:ring-green-500 placeholder:text-neutral-400"
+                type="text" placeholder="ENTER_DESIGNATION..." value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} autoFocus
+                className="w-full bg-[#111] border border-[#333] text-white p-3 font-mono text-sm outline-none focus:border-[#E8C060] placeholder:text-[#444]"
                 onKeyDown={(e) => e.key === 'Enter' && confirmCreatePlaylist()}
             />
         </CustomModal>
