@@ -8,6 +8,8 @@ export const usePlayer = () => useContext(PlayerContext);
 export const PlayerProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
+  const [isMuted, setIsMuted] = useState(false);
+  const [prevVolume, setPrevVolume] = useState(0.5);
   const [currentTime, setCurrentTime] = useState(0);
   const [playQueue, setPlayQueue] = useState([]); 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
@@ -22,6 +24,32 @@ export const PlayerProvider = ({ children }) => {
     coverArt: null,
     src: null
   });
+
+  const addToQueue = (track) => {
+      if (playQueue.length === 0) {
+          playTrack(track);
+          setPlayQueue([track]);
+          setCurrentTrackIndex(0);
+      } else {
+          setPlayQueue(prev => [...prev, track]);
+      }
+  };
+
+  const removeFromQueue = (indexToRemove) => {
+      setPlayQueue(prev => {
+          const newQueue = prev.filter((_, index) => index !== indexToRemove);
+          
+         
+          if (indexToRemove === currentTrackIndex) {
+          }
+          
+          if (indexToRemove < currentTrackIndex) {
+              setCurrentTrackIndex(old => old - 1);
+          }
+          
+          return newQueue;
+      });
+  };
 
   const [playlists, setPlaylists] = useState(() => {
       const saved = localStorage.getItem('my_playlists');
@@ -44,8 +72,27 @@ export const PlayerProvider = ({ children }) => {
   }, [likedSongs]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      setIsMuted(volume === 0);
+    }
   }, [volume]);
+
+  const toggleMute = () => {
+      if (isMuted) {
+          setVolume(prevVolume === 0 ? 0.5 : prevVolume);
+          setIsMuted(false);
+      } else {
+          setPrevVolume(volume);
+          setVolume(0);
+          setIsMuted(true);
+      }
+  };
+
+  const handleSetVolume = (val) => {
+      setVolume(val);
+      if (val > 0) setIsMuted(false);
+  }
 
   const playTrack = (track) => {
     if (audioRef.current && track.src) {
@@ -189,7 +236,14 @@ export const PlayerProvider = ({ children }) => {
       toggleLike, 
       isLiked,
       checkIsLiked,
-      updatePlaylistCover
+      updatePlaylistCover,
+      toggleMute,
+      isMuted,
+      playTrack,
+      handleSetVolume,
+      addToQueue,
+      removeFromQueue,
+      currentTrackIndex
     }}>
       {children}
       <audio 
