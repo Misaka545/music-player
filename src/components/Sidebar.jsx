@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, Folder, FileAudio, Terminal } from 'lucide-react';
+import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, Folder, FileAudio, Terminal, X } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
+
+let eggImage = null;
+try {
+    eggImage = new URL('../assets/kristen.png', import.meta.url).href; 
+} catch (e) {
+    eggImage = "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop"; 
+}
 
 const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
@@ -10,9 +17,20 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   
+  // --- MORSE CODE STATE ---
+  const [morseBuffer, setMorseBuffer] = useState("");
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(null); // 0 (Teal), 1 (Yellow), 2 (Orange)
+  
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const uploadMenuRef = useRef(null);
+
+  // Morse Refs
+  const resetTimeout = useRef(null);
+  
+  // THE PASSCODE: LONETRAIL (.-.. --- -. . - .-. .- .. .-..)
+  const TARGET_CODE = ".-.. --- -. . - .-. .- .. .-..";
 
   useEffect(() => {
       const handleClickOutside = (e) => {
@@ -23,18 +41,47 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   }, []);
 
   const handleCreateClick = () => { setNewPlaylistName(""); setIsModalOpen(true); };
+  
   const confirmCreatePlaylist = () => {
       if (newPlaylistName.trim() !== "") { createPlaylist(newPlaylistName); setFilterMode('playlists'); setIsModalOpen(false); }
   };
+  
   const triggerUpload = (type) => {
       setShowUploadMenu(false);
       if (type === 'folder' && folderInputRef.current) folderInputRef.current.click();
       else if (type === 'file' && fileInputRef.current) fileInputRef.current.click();
   };
 
+  // --- MORSE CODE LOGIC ---
+  const handleBarClick = (index, char) => {
+      setActiveIndex(index);
+      setTimeout(() => setActiveIndex(null), 150);
+
+      setMorseBuffer(prev => {
+          const newBuffer = prev + char;
+         
+          if (newBuffer.includes(TARGET_CODE)) {
+               triggerEasterEgg();
+               return "";
+          }
+          return newBuffer;
+      });
+
+      if (resetTimeout.current) clearTimeout(resetTimeout.current);
+      resetTimeout.current = setTimeout(() => {
+          setMorseBuffer("");
+      }, 3000);
+  };
+
+  const triggerEasterEgg = () => {
+      setShowEasterEgg(true);
+      setMorseBuffer("");
+      if (resetTimeout.current) clearTimeout(resetTimeout.current);
+  };
+
   return (
     <>
-        <div className="w-64 flex flex-col gap-3 h-full hidden md:flex">
+        <div className="w-64 flex flex-col gap-3 h-full hidden md:flex relative">
             {/* LOGO AREA */}
             <div className="h-16 bg-[#111] border border-[#333] flex flex-col justify-center relative overflow-hidden group cursor-default">
                 <div className="absolute top-0 right-0 p-1"><div className="w-1.5 h-1.5 bg-[#4FD6BE] rounded-full animate-pulse-tech"></div></div>
@@ -122,7 +169,7 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2">
-                        {filterMode === 'playlists' && (
+                         {filterMode === 'playlists' && (
                             <>
                                 <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
                                     <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] transition-colors">
@@ -160,13 +207,54 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                     </div>
                 </div>
 
-                {/* 3. VISUALIZER DECO */}
-                <div className="h-10 border-t border-[#333] flex items-end justify-between px-4 pb-2 bg-[#0a0a0a]">
-                    <div className="flex items-end gap-[2px] h-4 w-full">
-                        {[40, 70, 30, 80, 50, 90, 20, 60, 40, 70, 30, 50].map((h, i) => (
-                            <div key={i} className="flex-1 bg-[#222] hover:bg-[#4FD6BE] transition-colors duration-500" style={{ height: `${h}%` }}></div>
-                        ))}
-                    </div>
+                {/* 3. VISUALIZER DECO (EASTER EGG TRIGGER) */}
+                <div 
+                    className="h-10 border-t border-[#333] bg-[#0a0a0a] select-none flex items-end justify-between px-3 pb-2 gap-1 relative"
+                    title="VISUALIZER_INPUT"
+                >
+                    {/* Loop 12 bars */}
+                    {[25, 45, 20, 55, 30, 60, 15, 40, 25, 50, 20, 35].map((height, i) => {
+                        const group = i % 3; 
+                        
+                        let activeColor = "";
+                        let inputChar = "";
+                        
+                        if (group === 0) {
+                            activeColor = "#4FD6BE"; // Teal (Dot)
+                            inputChar = ".";
+                        } else if (group === 1) {
+                            activeColor = "#E8C060"; // Yellow (Wait)
+                            inputChar = " ";
+                        } else {
+                            activeColor = "#FF6B35"; // Orange (Dash)
+                            inputChar = "-";
+                        }
+
+                        const isActive = activeIndex === i;
+
+                        return (
+                            <div 
+                                key={i}
+                                className="flex-1 h-full flex items-end justify-center cursor-pointer group"
+                                // Sửa sự kiện: Truyền index cụ thể vào
+                                onMouseDown={() => handleBarClick(i, inputChar)}
+                            >
+                                <div 
+                                    className="w-full transition-all duration-75"
+                                    style={{ 
+                                        // LOGIC MÀU: Bình thường là #333 (Xám), Click vào mới hiện màu
+                                        backgroundColor: isActive ? activeColor : '#333',
+                                        
+                                        // LOGIC CHIỀU CAO: Bình thường thấp, Click vào cao lên 80%
+                                        height: isActive ? '80%' : `${height}%`,
+                                        
+                                        // Thêm hiệu ứng phát sáng nhẹ khi click
+                                        // boxShadow: isActive ? `0 0 10px ${activeColor}` : 'none'
+                                    }}
+                                ></div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -178,6 +266,51 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                 onKeyDown={(e) => e.key === 'Enter' && confirmCreatePlaylist()}
             />
         </CustomModal>
+
+        {/* --- EASTER EGG MODAL --- */}
+        {showEasterEgg && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 animate-in fade-in duration-1000">
+                <div className="relative max-w-lg w-full p-1 bg-[#1a1a1a] border border-[#4FD6BE] shadow-[0_0_50px_rgba(79,214,190,0.3)] mb-24">
+                    
+                    {/* Corner Decos */}
+                    <div className="absolute -top-2 -left-2 w-4 h-4 border-t-2 border-l-2 border-[#FF6B35]"></div>
+                    <div className="absolute -bottom-2 -right-2 w-4 h-4 border-b-2 border-r-2 border-[#FF6B35]"></div>
+
+                    {/* Content Container */}
+                    <div className="bg-[#09090b] relative overflow-hidden">
+                        
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-2 border-b border-[#333] bg-[#111]">
+                            <div className="flex items-center gap-2 text-[#4FD6BE] font-mono text-[10px]">
+                                <Terminal size={12} />
+                                <span className="tracking-widest">PRIVATE_MEMORY_BANK // -.- .-. .. ... - . -.</span>
+                            </div>
+                            <button onClick={() => setShowEasterEgg(false)} className="text-[#555] hover:text-[#FF6B35] transition-colors"><X size={16} /></button>
+                        </div>
+
+                        {/* Image */}
+                        <div className="relative aspect-[4/3] w-full border-b border-[#333] group">
+                            <img 
+                                src={eggImage} 
+                                alt="Memory" 
+                                className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000"
+                            />
+                            {/* CRT Scanline Effect */}
+                            <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[length:100%_2px,3px_100%] pointer-events-none"></div>
+                        </div>
+
+                        {/* Text Area */}
+                        <div className="p-8 text-center bg-[#0e0e10]">
+                             <h2 className="text-xl md:text-2xl font-bold text-white font-futura tracking-widest uppercase mb-2 animate-pulse">
+                                "Good night, Kristen"
+                             </h2>
+                             <div className="h-[1px] w-12 bg-[#FF6B35] mx-auto my-3"></div>
+                             <p className="text-[10px] text-[#555] font-mono uppercase tracking-[0.2em]">	If, in a century or a millenium, our descendants walk among the stars, the masses will sing her praises.	</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
     </>
   );
 };
