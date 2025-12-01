@@ -13,7 +13,7 @@
 body {
   background-color: var(--color-bg);
   color: #EAEAEA;
-  font-family: 'Futura', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Ưu tiên Futura nếu có */
+  font-family: 'Futura', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
   overflow: hidden;
 }
 
@@ -56,4 +56,15 @@ body {
 }
 .animate-pulse-tech {
   animation: pulse-tech 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.app-drag-region {
+  -webkit-app-region: drag; 
+}
+.app-no-drag {
+  -webkit-app-region: no-drag !important; 
+  cursor: default;
+}
+
+button {
+  -webkit-app-region: no-drag !important; 
 }

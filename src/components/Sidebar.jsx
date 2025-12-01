@@ -43,8 +43,8 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                         <Terminal size={16} color="#FF6B35" />
                     </div>
                     <div>
-                        <div className="font-bold tracking-[0.2em] text-xs text-white">MUSIC_PLAYER</div>
-                        <div className="text-[8px] text-[#4FD6BE] font-mono tracking-wider">TERMINAL_V4</div>
+                        <div className="font-bold tracking-[0.2em] text-xs text-white">[PROJECT_LT] RL09</div>
+                        <div className="text-[8px] text-[#4FD6BE] font-mono tracking-wider">TERMINAL_V1</div>
                     </div>
                 </div>
                 <div className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#FF6B35] group-hover:w-full transition-all duration-500"></div>
