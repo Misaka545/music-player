@@ -8,14 +8,12 @@ const QueuePopup = ({ onClose }) => {
   const { playQueue, currentTrackIndex, startAlbumPlayback, removeFromQueue } = usePlayer();
   const popupRef = useRef(null);
 
-  // Đóng khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (popupRef.current && !popupRef.current.contains(e.target)) {
         onClose();
       }
     };
-    // Delay nhẹ để tránh click mở trùng với click đóng
     setTimeout(() => document.addEventListener('click', handleClickOutside), 100);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);

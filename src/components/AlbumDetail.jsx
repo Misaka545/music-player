@@ -154,7 +154,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
                             <span className={`text-sm font-bold ${isActive ? 'text-[#FF6B35]' : 'text-[#ccc] group-hover:text-white'} transition-colors`}>{track.title}</span>
                             <span className="text-[10px] text-[#444] group-hover:text-[#666] font-mono uppercase tracking-wider">{track.artist}</span>
                         </div>
-                        <div className="text-right font-mono text-xs text-[#555] group-hover:text-white">{formatTime(track.duration)}</div>
+                        <div className="text-center font-mono text-xs text-[#555] group-hover:text-white">{formatTime(track.duration)}</div>
                     </div>
                 );
             })}

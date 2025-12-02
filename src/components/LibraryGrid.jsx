@@ -1,20 +1,17 @@
 // src/components/LibraryGrid.jsx
 import React from 'react';
 import { Play, Disc, FolderPlus, ListMusic } from 'lucide-react';
-import { usePlayer } from '../context/PlayerContext'; // 1. Import Context
+import { usePlayer } from '../context/PlayerContext'; 
 
 const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults }) => {
-  // 2. Lấy hàm startAlbumPlayback từ Context
   const { startAlbumPlayback } = usePlayer();
 
-  // Logic chọn dữ liệu hiển thị (Search hoặc Library)
   let displayAlbums = isSearchMode ? searchResults.albums : Object.values(albums);
   
-  // Hàm xử lý khi bấm nút Play nhỏ
   const handlePlayClick = (e, album) => {
-      e.stopPropagation(); // 3. Quan trọng: Ngăn không cho click xuyên qua thẻ cha (tránh chuyển trang)
+      e.stopPropagation(); 
       if (album.tracks && album.tracks.length > 0) {
-          startAlbumPlayback(album.tracks, 0); // Phát bài đầu tiên trong album
+          startAlbumPlayback(album.tracks, 0); 
       }
   };
 
@@ -38,7 +35,7 @@ const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults }
             {displayAlbums.map((album, idx) => (
                 <div 
                     key={idx} 
-                    onClick={() => onSelect(album)} // Click vào thẻ -> Chuyển trang
+                    onClick={() => onSelect(album)} 
                     className="bg-[#161616] p-4 border border-[#333] hover:border-[#E8C060] transition-colors cursor-pointer group flex flex-col relative overflow-hidden"
                 >
                     {/* Tech Corner */}
@@ -50,7 +47,7 @@ const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults }
                         {/* --- NÚT PLAY --- */}
                         <div className="absolute bottom-2 right-2 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-20">
                             <button 
-                                onClick={(e) => handlePlayClick(e, album)} // Gọi hàm xử lý play
+                                onClick={(e) => handlePlayClick(e, album)} 
                                 className="w-10 h-10 bg-[#EAEAEA] text-black flex items-center justify-center shadow-lg hover:scale-110 hover:bg-white transition-transform" 
                                 style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
                                 title="Phát ngay"

@@ -217,7 +217,6 @@ const AppContent = () => {
             <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] opacity-80"></div>
 
             {/* Layout chia cột (Sidebar - Main) */}
-            {/* Thêm pb-24 để nội dung không bị PlayerBar che mất */}
             <div className="flex-1 flex z-10 p-3 gap-3 h-full pb-24">
                 
                 <Sidebar 
@@ -289,7 +288,7 @@ const AppContent = () => {
             </div>
         </div>
 
-        {/* 3. PlayerBar: Luôn nổi ở dưới cùng */}
+        {/* 3. PlayerBar */}
         <PlayerBar 
             onOpenAlbum={handleOpenCurrentAlbum} 
             onToggleFullScreen={() => setIsFullScreen(true)}

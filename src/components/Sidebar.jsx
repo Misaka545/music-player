@@ -2,13 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, Folder, FileAudio, Terminal, X } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
+import defaultEggImage from '../assets/kristen.png'; 
 
-let eggImage = null;
-try {
-    eggImage = new URL('../assets/kristen.png', import.meta.url).href; 
-} catch (e) {
-    eggImage = "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop"; 
-}
+
+const eggImage = defaultEggImage || "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop";
 
 const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
@@ -210,7 +207,9 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                 {/* 3. VISUALIZER DECO (EASTER EGG TRIGGER) */}
                 <div 
                     className="h-10 border-t border-[#333] bg-[#0a0a0a] select-none flex items-end justify-between px-3 pb-2 gap-1 relative"
-                    title="VISUALIZER_INPUT"
+                    title="INPUT: [TEAL=.] [GOLD=SPACE] [ORANGE=-]"
+                    // THÊM DÒNG NÀY:
+                    style={{ WebkitAppRegion: 'no-drag' }} 
                 >
                     {/* Loop 12 bars */}
                     {[25, 45, 20, 55, 30, 60, 15, 40, 25, 50, 20, 35].map((height, i) => {
@@ -218,16 +217,12 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                         
                         let activeColor = "";
                         let inputChar = "";
-                        
-                        if (group === 0) {
-                            activeColor = "#4FD6BE"; // Teal (Dot)
-                            inputChar = ".";
+                         if (group === 0) {
+                            activeColor = "#4FD6BE"; inputChar = ".";
                         } else if (group === 1) {
-                            activeColor = "#E8C060"; // Yellow (Wait)
-                            inputChar = " ";
+                            activeColor = "#E8C060"; inputChar = " ";
                         } else {
-                            activeColor = "#FF6B35"; // Orange (Dash)
-                            inputChar = "-";
+                            activeColor = "#FF6B35"; inputChar = "-";
                         }
 
                         const isActive = activeIndex === i;
@@ -236,19 +231,14 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                             <div 
                                 key={i}
                                 className="flex-1 h-full flex items-end justify-center cursor-pointer group"
-                                // Sửa sự kiện: Truyền index cụ thể vào
+                                style={{ WebkitAppRegion: 'no-drag' }}
                                 onMouseDown={() => handleBarClick(i, inputChar)}
                             >
                                 <div 
                                     className="w-full transition-all duration-75"
                                     style={{ 
-                                        // LOGIC MÀU: Bình thường là #333 (Xám), Click vào mới hiện màu
                                         backgroundColor: isActive ? activeColor : '#333',
-                                        
-                                        // LOGIC CHIỀU CAO: Bình thường thấp, Click vào cao lên 80%
                                         height: isActive ? '80%' : `${height}%`,
-                                        
-                                        // Thêm hiệu ứng phát sáng nhẹ khi click
                                         // boxShadow: isActive ? `0 0 10px ${activeColor}` : 'none'
                                     }}
                                 ></div>
