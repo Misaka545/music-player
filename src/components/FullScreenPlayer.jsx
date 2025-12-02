@@ -1,6 +1,5 @@
 // src/components/FullScreenPlayer.jsx
 import React from 'react';
-// Import thêm X (nút xóa)
 import { ChevronDown, MoreHorizontal, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Disc, X } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
@@ -11,7 +10,7 @@ const FullScreenPlayer = ({ onClose }) => {
     handleNext, handlePrev, currentTime, setCurrentTime,
     isShuffle, setIsShuffle, repeatMode, setRepeatMode,
     playQueue, currentTrackIndex, audioRef,
-    removeFromQueue // Lấy hàm xóa
+    removeFromQueue 
   } = usePlayer();
 
   const handleSeek = (e) => {
@@ -20,20 +19,19 @@ const FullScreenPlayer = ({ onClose }) => {
       if (audioRef.current) audioRef.current.currentTime = newTime;
   };
 
-  // Lấy danh sách các bài tiếp theo (từ bài hiện tại + 1 đến hết)
   const upcomingTracks = playQueue.slice(currentTrackIndex + 1);
 
   return (
     <div className="fixed inset-0 z-[60] bg-[#09090b] flex flex-col animate-in slide-in-from-bottom duration-300 font-sans text-white">
       
-      {/* Background ... (Giữ nguyên) */}
+      {/* Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] bg-[#FF6B35]/20 blur-[120px] rounded-full mix-blend-screen"></div>
           <div className="absolute top-[20%] right-[20%] w-[50%] h-[50%] bg-[#4FD6BE]/10 blur-[100px] rounded-full mix-blend-screen"></div>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-3xl"></div>
       </div>
 
-      {/* Header ... (Giữ nguyên) */}
+      {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-6 py-6 md:px-12">
         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><ChevronDown size={32} strokeWidth={1.5} /></button>
         <div className="flex flex-col items-center">
@@ -46,7 +44,7 @@ const FullScreenPlayer = ({ onClose }) => {
       {/* MAIN CONTENT */}
       <div className="relative z-10 flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 px-8 pb-12 overflow-y-auto custom-scrollbar">
         
-        {/* LEFT: ARTWORK (Giữ nguyên) */}
+        {/* LEFT: ARTWORK */}
         <div className="flex-1 flex justify-center lg:justify-end w-full max-w-xl">
             <div className="aspect-square w-full max-w-[400px] lg:max-w-[550px] relative group">
                 <div className="absolute -inset-4 border border-white/5 rounded-sm pointer-events-none"></div>
@@ -61,7 +59,7 @@ const FullScreenPlayer = ({ onClose }) => {
         {/* RIGHT: CONTROLS & QUEUE LIST */}
         <div className="flex-1 w-full max-w-xl flex flex-col gap-8 lg:items-start items-center text-center lg:text-left h-full max-h-[600px]">
             
-            {/* Controls Block (Giữ nguyên) */}
+            {/* Controls Block */}
             <div className="w-full flex-shrink-0">
                 <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 leading-tight tracking-tight">{currentTrack.title}</h1>
                 <p className="text-xl text-[#ccc] font-medium tracking-wide mb-6">{currentTrack.artist}</p>
@@ -91,7 +89,7 @@ const FullScreenPlayer = ({ onClose }) => {
                 </div>
             </div>
 
-            {/* --- QUEUE LIST (CẬP NHẬT) --- */}
+            {/* --- QUEUE LIST --- */}
             <div className="w-full flex-1 flex flex-col min-h-0 bg-[#1a1a1a]/40 backdrop-blur-md rounded-lg border border-white/5 overflow-hidden">
                 <div className="flex justify-between items-center px-4 py-3 border-b border-white/5 bg-[#1a1a1a]/60">
                     <span className="text-xs font-bold text-white uppercase tracking-wider">Next in Queue</span>
@@ -103,7 +101,6 @@ const FullScreenPlayer = ({ onClose }) => {
                         <div className="h-full flex items-center justify-center text-xs text-[#555] italic">End of queue</div>
                     ) : (
                         upcomingTracks.map((track, i) => {
-                            // Tính index thực tế trong mảng playQueue để xóa đúng bài
                             const realIndex = currentTrackIndex + 1 + i;
                             
                             return (
@@ -125,7 +122,7 @@ const FullScreenPlayer = ({ onClose }) => {
                                         <div className="text-[10px] text-[#666] truncate">{track.artist}</div>
                                     </div>
 
-                                    {/* Nút Xóa (Chỉ hiện khi hover) */}
+                                    {/* Nút Xóa */}
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); removeFromQueue(realIndex); }}
                                         className="p-1.5 text-[#555] hover:text-[#FF6B35] hover:bg-[#333] rounded-full opacity-0 group-hover:opacity-100 transition-all"

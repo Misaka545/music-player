@@ -23,14 +23,12 @@ const TitleBar = () => {
         {/* Left: Title */}
         <div className="flex items-center gap-2 text-[#555]">
             <Terminal size={12} className="text-[#FF6B35]" />
-            <span className="text-[10px] font-mono tracking-widest uppercase">RL09 Player // Ver 1.0</span>
+            <span className="text-[10px] font-mono tracking-widest uppercase">RETROGRADE Player // Ver 1.0</span>
         </div>
 
         {/* Right: Window Controls */}
-        {/* Container này dùng app-no-drag để vùng này không bị kéo */}
         <div className="flex items-center gap-1 app-no-drag">
             
-            {/* Từng nút bấm cũng nên có class app-no-drag để chắc chắn */}
             <button 
                 onClick={() => sendCommand('window-minimize')} 
                 className="p-1 hover:bg-[#333] text-[#888] hover:text-white rounded-sm transition-colors app-no-drag"

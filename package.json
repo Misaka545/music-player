@@ -1,5 +1,5 @@
 {
-  "name": "rhine-lab-player",
+  "name": "retrograde-player",
   "private": true,
   "version": "1.0.0",
   "main": "electron/main.js",  
@@ -38,18 +38,20 @@
     "wait-on": "^7.0.1"
   },
   "build": {
-    "appId": "com.rhinelab.player",
-    "productName": "Rhine Lab Player",
+    "appId": "com.retrograde.player",
+    "productName": "Retrograde Player",
     "copyright": "Copyright © 2025",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "electron/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",  
+      "icon": "build/icon.ico"
     }
   }
 }

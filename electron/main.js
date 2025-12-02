@@ -1,43 +1,73 @@
-// electron/main.js
-const { app, BrowserWindow, ipcMain } = require('electron'); 
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 
-process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-
-let mainWindow;
+// Khai báo biến win ở ngoài để không bị dọn dẹp bộ nhớ (Garbage Collection)
+let win;
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
+  // 1. Tạo cửa sổ
+  win = new BrowserWindow({
+    width: 1200,
     height: 800,
-    minWidth: 1000,
-    minHeight: 700,
-    frame: false, // Tắt khung viền
+    frame: false, // Tắt khung mặc định của Windows để dùng Custom TitleBar
     backgroundColor: '#09090b',
     webPreferences: {
-      nodeIntegration: true, 
+      nodeIntegration: true,
       contextIsolation: false, 
-      webSecurity: false
+      webSecurity: false,      // Cho phép load file local (nhạc)
     },
   });
 
-  const isDev = !app.isPackaged;
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  // 2. Cấu hình quyền truy cập thiết bị 
+  if (win.webContents.session) {
+    win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      if (permission === 'media' || permission === 'audioCapture') {
+        return true;
+      }
+      return false;
+    });
+
+    win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'media' || permission === 'audioCapture') {
+        return callback(true);
+      }
+      return callback(false);
+    });
   }
+
+  // 3. Load ứng dụng (React)
+  // Nếu đang chạy dev (npm run dev), load localhost. Nếu build xong, load file index.html
+  const startUrl = process.env.ELECTRON_START_URL || `file://${path.join(__dirname, '../dist/index.html')}`;
+  win.loadURL(startUrl);
+
+  // Mở DevTools khi chạy Dev (Tuỳ chọn)
+  // win.webContents.openDevTools();
+
+  // Xử lý sự kiện đóng cửa sổ
+  win.on('closed', () => {
+    win = null;
+  });
 }
 
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+ipcMain.on('window-minimize', () => {
+  if (win) win.minimize();
 });
+
+ipcMain.on('window-maximize', () => {
+  if (win) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+
+ipcMain.on('window-close', () => {
+  if (win) win.close();
+});
+
+app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -45,17 +75,8 @@ app.on('window-all-closed', () => {
   }
 });
 
-ipcMain.on('window-minimize', () => {
-  if (mainWindow) mainWindow.minimize();
-});
-
-ipcMain.on('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) mainWindow.unmaximize();
-    else mainWindow.maximize();
+app.on('activate', () => {
+  if (win === null) {
+    createWindow();
   }
-});
-
-ipcMain.on('window-close', () => {
-  if (mainWindow) mainWindow.close();
 });
