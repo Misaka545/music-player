@@ -60,7 +60,7 @@
 
 1.  **Clone the Repository**
     ```bash
-    git clone [https://github.com/Misaka545/music-player.git](https://github.com/Misaka545/music-player.git)
+    git clone https://github.com/Misaka545/retrograde.git
     cd music-player
     ```
 
