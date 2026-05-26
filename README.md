@@ -4,7 +4,7 @@
 ![System Status](https://img.shields.io/badge/SYSTEM-ONLINE-FF6B35?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/PLATFORM-ELECTRON%20%2F%20WEB-E8C060?style=for-the-badge)
 
-**Retrograde** is a high-fidelity, local music player built with a futuristic, terminal-inspired interface. Designed for audiophiles who appreciate visual immersion, Retrograde focuses on offline data persistence, a distinct cyberpunk aesthetic, and unique interactive elements hidden within the UI.
+**Retrograde** is a high-fidelity, local music player built with a futuristic, terminal-inspired interface. Designed for audiophiles who appreciate visual immersion, Retrograde focuses on offline data persistence, a distinct retrofuturistic aesthetic, and unique interactive elements hidden within the UI.
 
 ---
 
@@ -26,7 +26,7 @@
 * **Persistent Local Storage:** Library data and optimized cover arts are saved locally in the user's `.retrograde` directory, ensuring near-instant load times and zero memory bloat.
 
 ### UI / UX Experience
-* **Retro Futurism Aesthetic:** A high-contrast theme featuring **Teal** (`#4FD6BE`), **Gold** (`#E8C060`), and **Orange** (`#FF6B35`) against a void-black background.
+* **Retrofuturistic Aesthetic:** A high-contrast theme featuring **Teal** (`#4FD6BE`), **Gold** (`#E8C060`), and **Orange** (`#FF6B35`) against a void-black background.
 * **Kinetic Visuals:** Interface includes spinning discs, pulsing tech indicators, and dynamic gradients.
 * **Focus Modes:**
     * **Sidebar Nav:** Integrated navigation with system status indicators.
@@ -56,6 +56,7 @@
 * Node.js (v18+)
 * npm or yarn
 * Windows OS (Required for WASAPI Exclusive Mode)
+* **MPV Player**: You must download the Windows build of `mpv.exe` (from [mpv.io](https://mpv.io/) or [shinchiro's builds](https://sourceforge.net/projects/mpv-player-windows/files/)) and place it in the `bin/` folder at the root of the project. This file is ignored by Git due to its large size.
 
 ### Initialization Sequence
 
@@ -70,14 +71,19 @@
     npm install
     ```
 
-3.  **Run Development Protocols**
+3.  **Setup MPV for WASAPI Mode**
+    * Create a `bin` folder in the root directory if it doesn't exist.
+    * Download `mpv.exe` for Windows and place it inside the `bin/` folder.
+    * The path should look like: `retrograde/bin/mpv.exe`.
+
+4.  **Run Development Protocols**
 
     * *For Desktop App (Electron):*
         ```bash
         npm run electron:dev
         ```
 
-4.  **Build for Production**
+5.  **Build for Production**
 
     * *Generate Windows Installer / Portable Exe:*
         ```bash
