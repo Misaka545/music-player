@@ -2,14 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Home, Search, FolderPlus, Heart, Plus, ListMusic, Disc, Folder, FileAudio, Terminal, X } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
+import CoverImage from './CoverImage';
 import defaultEggImage from '../assets/kristen.png'; 
 
 
 const eggImage = defaultEggImage || "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop";
 
-const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
+const Sidebar = ({ libraryAlbums, onScanFolder, onScanFiles, onViewChange, onAlbumSelect }) => {
   const [filterMode, setFilterMode] = useState('albums');
-  const { playlists, createPlaylist, likedSongs } = usePlayer();
+  const { playlists, createPlaylist, likedSongs, isExclusiveMode, setIsExclusiveMode } = usePlayer();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [showUploadMenu, setShowUploadMenu] = useState(false);
@@ -19,8 +20,6 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [activeIndex, setActiveIndex] = useState(null); // 0 (Teal), 1 (Yellow), 2 (Orange)
   
-  const folderInputRef = useRef(null);
-  const fileInputRef = useRef(null);
   const uploadMenuRef = useRef(null);
 
   // Morse Refs
@@ -45,8 +44,8 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
   
   const triggerUpload = (type) => {
       setShowUploadMenu(false);
-      if (type === 'folder' && folderInputRef.current) folderInputRef.current.click();
-      else if (type === 'file' && fileInputRef.current) fileInputRef.current.click();
+      if (type === 'folder' && onScanFolder) onScanFolder();
+      else if (type === 'file' && onScanFiles) onScanFiles();
   };
 
   // MORSE CODE LOGIC 
@@ -132,8 +131,6 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                             </div>
                         )}
                     </div>
-                    <input type="file" webkitdirectory="true" directory="" multiple ref={folderInputRef} onChange={onUpload} className="hidden" />
-                    <input type="file" multiple accept="audio/*,.flac" ref={fileInputRef} onChange={onUpload} className="hidden" />
 
                     <div onClick={() => onViewChange('liked-songs')} className="flex items-center justify-between p-2 hover:bg-white/5 cursor-pointer group border-l-2 border-transparent hover:border-[#FF6B35] transition-all">
                         <div className="flex items-center gap-3">
@@ -165,7 +162,7 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                         ))}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2" style={{ overflowAnchor: 'none' }}>
                          {filterMode === 'playlists' && (
                             <>
                                 <div onClick={() => onViewChange('liked-songs')} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
@@ -179,8 +176,8 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                                 </div>
                                 {playlists.map((pl) => (
                                     <div key={pl.id} onClick={() => onAlbumSelect(pl)} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
-                                        <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
-                                            {pl.coverArt ? <img src={pl.coverArt} className="w-full h-full object-cover" /> : <ListMusic size={12} className="text-[#555]" />}
+                                        <div className="w-8 h-8 flex-shrink-0 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
+                                            <CoverImage src={pl.coverArt} type="playlist" size="sm" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h4 className="text-[11px] font-bold text-[#ccc] group-hover:text-white truncate">{pl.name}</h4>
@@ -192,8 +189,8 @@ const Sidebar = ({ libraryAlbums, onUpload, onViewChange, onAlbumSelect }) => {
                         )}
                         {filterMode === 'albums' && Object.values(libraryAlbums).map((album, idx) => (
                             <div key={idx} onClick={() => onAlbumSelect(album)} className="flex items-center gap-3 p-2 hover:bg-[#ffffff]/5 cursor-pointer border border-transparent hover:border-[#333] transition-colors group">
-                                <div className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
-                                    {album.coverArt ? <img src={album.coverArt} className="w-full h-full object-cover" /> : <Disc size={12} className="text-[#555]" />}
+                                <div className="w-8 h-8 flex-shrink-0 bg-[#1a1a1a] flex items-center justify-center border border-[#333] group-hover:border-[#E8C060] overflow-hidden">
+                                    <CoverImage src={album.coverArt} type="album" size="sm" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-[11px] font-bold text-[#ccc] group-hover:text-white truncate">{album.name}</h4>

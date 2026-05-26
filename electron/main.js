@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, Tray, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const mpvController = require('./mpv-controller');
 
 let win;
 let tray = null;
@@ -65,6 +66,7 @@ function handleWindowClose(event) {
     if (win) win.hide();
   } else {
     app.isQuiting = true;
+    mpvController.quit();
     app.quit();
   }
 }
@@ -82,6 +84,7 @@ ipcMain.on('tray-minimize-response', (event, { shouldMinimize, rememberChoice })
     if (win) win.hide();
   } else {
     app.isQuiting = true;
+    mpvController.quit();
     app.quit();
   }
 });
@@ -146,8 +149,184 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => {
   handleWindowClose(null);
 });
+
+mpvController.on('time-pos', (time) => {
+  if (win) win.webContents.send('mpv-time-pos', time);
+});
+mpvController.on('pause', (isPaused) => {
+  if (win) win.webContents.send('mpv-pause', isPaused);
+});
+mpvController.on('eof-reached', () => {
+  if (win) win.webContents.send('mpv-eof');
+});
+mpvController.on('file-loaded', () => {
+  if (win) win.webContents.send('mpv-file-loaded');
+});
+
+ipcMain.handle('mpv-start', async () => {
+  try {
+    await mpvController.start();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-play', async (event, filePath, startTime = 0) => {
+  try {
+    const src = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
+    await mpvController.play(src, startTime);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-pause', async () => {
+  try {
+    await mpvController.pause();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-resume', async () => {
+  try {
+    await mpvController.resume();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-seek', async (event, seconds) => {
+  try {
+    await mpvController.seek(seconds);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-set-volume', async (event, volume) => {
+  try {
+    await mpvController.setVolume(volume);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mpv-quit', async () => {
+  mpvController.quit();
+  return { success: true };
+});
+
+ipcMain.handle('mpv-stop', async () => {
+  mpvController.quit();
+  return { success: true };
+});
+
+ipcMain.handle('mpv-toggle-pause', async () => {
+  try {
+    await mpvController.togglePause();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 const { nativeImage } = require('electron');
 const os = require('os');
+const { discoverAudioFiles, scanFiles, readLibrarySync } = require('./scanner');
+
+ipcMain.handle('scan-folder', async () => {
+  if (!win) return { cancelled: true };
+
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory'],
+    title: 'Select Music Folder'
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { cancelled: true };
+  }
+
+  const folderPath = result.filePaths[0];
+  win.webContents.send('scan-progress', { phase: 'discovering', scanned: 0, total: 0, currentFile: `Scanning ${folderPath}...` });
+  const audioFiles = discoverAudioFiles(folderPath);
+
+  if (audioFiles.length === 0) {
+    return { cancelled: false, count: 0, library: {} };
+  }
+
+  const existingLibrary = readLibrarySync();
+  const library = await scanFiles(audioFiles, win, existingLibrary);
+
+  win.webContents.send('scan-complete', { library });
+  return { cancelled: false, count: audioFiles.length, library };
+});
+
+ipcMain.handle('scan-files', async () => {
+  if (!win) return { cancelled: true };
+
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openFile', 'multiSelections'],
+    title: 'Select Music Files',
+    filters: [
+      { name: 'Audio Files', extensions: ['flac', 'mp3', 'wav', 'aac', 'ogg', 'm4a', 'wma', 'aiff', 'alac', 'opus'] }
+    ]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { cancelled: true };
+  }
+
+  const existingLibrary = readLibrarySync();
+  const library = await scanFiles(result.filePaths, win, existingLibrary);
+
+  win.webContents.send('scan-complete', { library });
+  return { cancelled: false, count: result.filePaths.length, library };
+});
+
+ipcMain.handle('regenerate-thumbnails', async () => {
+    const coverDir = path.join(os.homedir(), '.retrograde', 'covers');
+    if (!fs.existsSync(coverDir)) return { regenerated: 0 };
+
+    const files = fs.readdirSync(coverDir).filter(f => f.endsWith('_thumb.jpg'));
+    let count = 0;
+
+    for (const thumbFile of files) {
+        const thumbPath = path.join(coverDir, thumbFile);
+        try {
+            await new Promise(resolve => setImmediate(resolve));
+            const stat = fs.statSync(thumbPath);
+            if (stat.size > 100 * 1024) {
+                const fullFile = thumbFile.replace('_thumb.jpg', '_full.jpg');
+                const fullPath = path.join(coverDir, fullFile);
+
+                if (fs.existsSync(fullPath)) {
+                    const raw = fs.readFileSync(fullPath);
+                    const img = nativeImage.createFromBuffer(raw);
+                    const size = img.getSize();
+                    if (size.width > 400 && size.width > 0) {
+                        const resized = img.resize({
+                            width: 400,
+                            height: Math.round(size.height * (400 / size.width)),
+                            quality: 'good'
+                        });
+                        fs.writeFileSync(thumbPath, resized.toJPEG(80));
+                        count++;
+                    }
+                }
+            }
+        } catch (e) { /* skip */ }
+    }
+
+    console.log(`[Migration] Regenerated ${count} thumbnails`);
+    return { regenerated: count };
+});
 
 function getSafeTrayIconPath() {
   // 1. Production: electron-builder copies icon.ico to resources/ outside ASAR

@@ -25,7 +25,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
   const fileInputRef = useRef(null);
 
   const isUserPlaylist = playlists.some(pl => pl.id === album.id);
-  const isUploadedAlbum = !isUserPlaylist && album.name !== "Bài hát đã thích";
+  const isUploadedAlbum = !isUserPlaylist && album.name !== "Liked Songs";
   const isAlbumLiked = album.tracks.length > 0 && album.tracks.every(t => likedSongs.some(ls => ls.title === t.title));
 
   useEffect(() => {
@@ -88,7 +88,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
             <div className="w-56 h-56 relative flex-shrink-0 group">
                 <div className="absolute inset-0 border border-[#444] translate-x-2 translate-y-2"></div>
                 <div className="absolute inset-0 border border-[#666] -translate-x-1 -translate-y-1 z-10 bg-[#222]">
-                    <CoverImage src={album.coverArt} alt={album.name} className="w-full h-full" />
+                    <CoverImage src={album.coverArtFull || album.coverArt} alt={album.name} className="w-full h-full" />
                     {/* Tech Lines Overlay */}
                     <div className="absolute inset-0 border-[0.5px] border-white/20 m-2 pointer-events-none flex flex-col justify-between p-1">
                         <div className="flex justify-between"><span className="w-1 h-1 bg-white/50"></span><span className="w-1 h-1 bg-white/50"></span></div>
@@ -122,7 +122,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
             <button onClick={() => handlePlay(0)} className="w-12 h-10 bg-[#EAEAEA] text-black flex items-center justify-center hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 85%, 85% 100%, 0 100%, 0 15%)' }}>
                 <Play size={20} fill="currentColor" className="ml-1" />
             </button>
-            {album.name !== "Bài hát đã thích" && (
+            {album.name !== "Liked Songs" && (
                 <button onClick={handleLikeAlbum} className="hover:scale-110 transition-transform">
                     <Heart size={28} className={isAlbumLiked ? 'text-[#FF6B35] fill-[#FF6B35]' : 'text-[#555] hover:text-white'} />
                 </button>

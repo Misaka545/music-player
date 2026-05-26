@@ -10,7 +10,8 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
         isPlaying, currentTrack, volume, setVolume, currentTime, setCurrentTime,
         togglePlay, handleNext, handlePrev, isShuffle, setIsShuffle, repeatMode, setRepeatMode,
         toggleLike, isLiked, audioRef, toggleMute, isMuted,
-        audioDevices, selectedDeviceId, setAudioOutputDevice, getAudioDevices
+        audioDevices, selectedDeviceId, setAudioOutputDevice, getAudioDevices,
+        isExclusiveMode, setIsExclusiveMode, seekTrack
     } = usePlayer();
 
     const [showDeviceMenu, setShowDeviceMenu] = useState(false);
@@ -28,12 +29,23 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
 
     const handleSeekChange = (e) => {
         const newTime = parseFloat(e.target.value);
-        setCurrentTime(newTime);
-        if (audioRef.current) audioRef.current.currentTime = newTime;
+        seekTrack(newTime);
     };
 
-    const handleVolumeChange = (e) => {
-        setVolume(parseFloat(e.target.value));
+    const volumeRef = useRef(null);
+
+    const handleVolumePointer = (e) => {
+        if (!volumeRef.current) return;
+        const rect = volumeRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(1, x / rect.width));
+        const snapped = Math.round(percentage * 15) / 15;
+        setVolume(snapped);
+    };
+
+    const handleVolumePointerDown = (e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        handleVolumePointer(e);
     };
 
     const getDeviceName = (device) => {
@@ -64,7 +76,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                 <div
                     className="w-14 h-14 bg-[#1a1a1a] border border-[#444] flex items-center justify-center relative overflow-hidden flex-shrink-0 group cursor-pointer"
                     onClick={(e) => { e.stopPropagation(); onOpenAlbum(); }}
-                    title="Đi tới Album"
+                    title="Go to Album"
                 >
                     <div className="absolute inset-0 bg-[#FF6B35]/5 group-hover:bg-[#FF6B35]/20 transition-colors"></div>
                     <CoverImage src={currentTrack.coverArt} alt={currentTrack.title} isPlaying={isPlaying} size="sm" className="w-full h-full p-[2px]" />
@@ -108,18 +120,24 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
             </div>
 
             {/* RIGHT: VOLUME & EXTRAS */}
-            <div className="w-1/4 flex justify-end items-center gap-8 z-10 min-w-[250px]">
+            <div className="w-1/4 flex justify-end items-center gap-6 z-10 min-w-[320px]">
 
                 {/* VOLUME SLIDER */}
-                <div className="flex items-center gap-3 group relative w-24 h-8">
+                <div className="flex items-center gap-3 group relative w-24 h-8 flex-shrink-0">
                     <button onClick={toggleMute} className="text-[#555] group-hover:text-white transition-colors focus:outline-none">
                         <VolumeIcon size={18} />
                     </button>
-                    <div className="relative flex-1 h-full flex items-center">
+                    <div 
+                        ref={volumeRef}
+                        className="relative flex-1 h-full flex items-center cursor-pointer"
+                        onPointerDown={handleVolumePointerDown}
+                        onPointerMove={(e) => e.buttons === 1 && handleVolumePointer(e)}
+                    >
                         <div className="flex items-end gap-[2px] h-6 w-full pointer-events-none">
                             {[...Array(15)].map((_, idx) => {
                                 const barColor = idx < 5 ? '#4FD6BE' : idx < 10 ? '#E8C060' : '#FF6B35';
-                                const isActive = (idx / 15) < volume && !isMuted;
+                                const activeBars = isMuted ? 0 : Math.round(volume * 15);
+                                const isActive = idx < activeBars;
                                 return (
                                     <div key={idx} className="w-full bg-[#222] relative" style={{ height: '100%' }}>
                                         <div className="w-full absolute bottom-0 transition-all duration-75" style={{ height: isActive ? '100%' : '0%', backgroundColor: barColor, opacity: isActive ? 1 : 0 }}></div>
@@ -127,12 +145,20 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                                 )
                             })}
                         </div>
-                        <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
                     </div>
                 </div>
 
-                {/* 2. EXTRAS GROUP */}
+                {/* EXTRAS GROUP */}
                 <div className="flex items-center gap-5 text-[#555] border-l border-[#333] pl-6 relative h-8">
+
+                    {/* Exclusive Mode */}
+                    <button
+                        onClick={() => setIsExclusiveMode(!isExclusiveMode)}
+                        className={`text-[9px] font-bold font-mono px-2 py-0.5 border rounded-sm transition-colors flex items-center justify-center h-6 ${isExclusiveMode ? 'text-[#FF6B35] border-[#FF6B35] bg-[#FF6B35]/10' : 'text-[#555] border-[#333] hover:text-[#888]'}`}
+                        title="WASAPI Exclusive Mode (Bit-perfect)"
+                    >
+                        WASAPI
+                    </button>
 
                     {/* Heart */}
                     <button onClick={() => toggleLike()} className={`transition-colors flex items-center justify-center ${isLiked ? 'text-[#FF6B35]' : 'hover:text-[#FF6B35]'}`}>
@@ -140,7 +166,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                     </button>
 
                     {/* Queue */}
-                    <button onClick={onToggleQueue} title="Hàng đợi" className="hover:text-[#E8C060] transition-colors cursor-pointer focus:outline-none flex items-center justify-center">
+                    <button onClick={onToggleQueue} title="Queue" className="hover:text-[#E8C060] transition-colors cursor-pointer focus:outline-none flex items-center justify-center">
                         <ListMusic size={20} />
                     </button>
 
@@ -152,7 +178,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                                 if (!showDeviceMenu) getAudioDevices();
                             }}
                             className={`transition-colors flex items-center justify-center ${showDeviceMenu ? 'text-[#FF6B35]' : 'hover:text-[#4FD6BE]'}`}
-                            title="Chọn thiết bị Output"
+                            title="Select Output Device"
                         >
                             <Speaker size={20} />
                         </button>
@@ -187,7 +213,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                     </div>
 
                     {/* Fullscreen */}
-                    <button onClick={onToggleFullScreen} title="Toàn màn hình" className="hover:text-white transition-colors cursor-pointer flex items-center justify-center">
+                    <button onClick={onToggleFullScreen} title="Full Screen" className="hover:text-white transition-colors cursor-pointer flex items-center justify-center">
                         <Maximize2 size={18} />
                     </button>
                 </div>

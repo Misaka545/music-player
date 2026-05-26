@@ -1,6 +1,5 @@
 // src/App.jsx
-import React, { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from 'react';
-import * as mm from 'music-metadata-browser';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback, useDeferredValue } from 'react';
 import { PlayerProvider, usePlayer } from './context/PlayerContext';
 import Sidebar from './components/Sidebar';
 import PlayerBar from './components/PlayerBar';
@@ -12,7 +11,6 @@ import QueuePopup from './components/QueuePopup';
 import TitleBar from './components/TitleBar';
 import { Search, Play, Disc, ListMusic } from 'lucide-react';
 import { saveAlbumToDB, getAllAlbumsFromDB, deleteAlbumFromDB, saveCoverArt, batchDeleteAlbumsFromDB } from './utils/db';
-import { prewarmCoverCache } from './components/CoverImage';
 
 const AppContent = () => {
     const [activeView, setActiveView] = useState('library');
@@ -22,9 +20,16 @@ const AppContent = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const deferredSearchQuery = useDeferredValue(searchQuery);
-    const [uploadModal, setUploadModal] = useState({ open: false, files: [] });
     const [searchTab, setSearchTab] = useState('all'); // 'all', 'tracks', 'albums', 'playlists'
-    const { likedSongs, playlists, startAlbumPlayback, currentTrack, togglePlay, handleNext, handlePrev, toggleMute, volume, handleSetVolume, isShuffle, setIsShuffle, repeatMode, setRepeatMode } = usePlayer();
+    const { 
+        currentTrack, setCurrentTrack, togglePlay, 
+        playQueue, setPlayQueue,
+        isShuffle, setIsShuffle, 
+        repeatMode, setRepeatMode, 
+        playlists, audioRef, setIsPlaying,
+        handleNext, handlePrev, toggleMute, volume, handleSetVolume,
+        likedSongs, startAlbumPlayback
+    } = usePlayer();
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [showQueue, setShowQueue] = useState(false);
     const [scrollPos, setScrollPos] = useState(0);
@@ -33,13 +38,41 @@ const AppContent = () => {
     const [showExitModal, setShowExitModal] = useState(false);
     const [rememberExitChoice, setRememberExitChoice] = useState(false);
 
+    const [scanProgress, setScanProgress] = useState({ phase: '', scanned: 0, total: 0, currentFile: '' });
+
     useEffect(() => {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
             const handleTrayInfoRequest = () => setShowExitModal(true);
             ipcRenderer.on('request-tray-minimize-info', handleTrayInfoRequest);
+
+            const handleScanProgress = (_e, data) => {
+                setScanProgress(data);
+            };
+            ipcRenderer.on('scan-progress', handleScanProgress);
+
+            const handleScanComplete = (_e, data) => {
+                if (data.library) {
+                    const lib = data.library;
+                    for (const albumName in lib) {
+                        const album = lib[albumName];
+                        album.tracks = album.tracks.map(track => ({
+                            ...track,
+                            coverArt: album.coverArt,
+                            coverArtFull: album.coverArtFull,
+                        }));
+                    }
+                    setLibraryAlbums(lib);
+                }
+                setIsLoading(false);
+                setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
+            };
+            ipcRenderer.on('scan-complete', handleScanComplete);
+
             return () => {
                 ipcRenderer.removeListener('request-tray-minimize-info', handleTrayInfoRequest);
+                ipcRenderer.removeListener('scan-progress', handleScanProgress);
+                ipcRenderer.removeListener('scan-complete', handleScanComplete);
             };
         }
     }, []);
@@ -68,82 +101,52 @@ const AppContent = () => {
                     loadedLibrary[album.name] = { ...album, tracks: tracksWithUrls };
                 }
                 setLibraryAlbums(loadedLibrary);
-                const coverUrls = Object.values(loadedLibrary)
-                    .map(a => a.coverArt)
-                    .filter(Boolean);
-                prewarmCoverCache(coverUrls);
+
+                if (window.require) {
+                    window.require('electron').ipcRenderer.invoke('regenerate-thumbnails')
+                        .then(r => r.regenerated > 0 && console.log(`[Migration] Regenerated ${r.regenerated} thumbnails`));
+                }
             } catch (error) { console.error("DB Load Error:", error); }
             setIsLoading(false);
         };
         loadLibrary();
     }, []);
 
-    const handleImportMusic = (e) => {
-        const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/') || f.name.endsWith('.flac'));
-        if (files.length > 0) setUploadModal({ open: true, files: files });
-        e.target.value = null;
-    };
-
-    const confirmUpload = async () => {
-        setUploadModal({ ...uploadModal, open: false });
+    const handleScanFolder = useCallback(async () => {
+        if (!window.require) return;
+        const { ipcRenderer } = window.require('electron');
         setIsLoading(true);
-        const files = uploadModal.files;
-        const tempLibrary = { ...libraryAlbums };
-
-        const BATCH_SIZE = 5;
-        const processFile = async (file) => {
-            try {
-                const metadata = await mm.parseBlob(file);
-                return { file, metadata };
-            } catch (err) {
-                console.error(err);
-                return null;
+        setScanProgress({ phase: 'discovering', scanned: 0, total: 0, currentFile: 'Opening folder dialog...' });
+        try {
+            const result = await ipcRenderer.invoke('scan-folder');
+            if (result.cancelled) {
+                setIsLoading(false);
+                setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
             }
-        };
-
-        for (let i = 0; i < files.length; i += BATCH_SIZE) {
-            const batch = files.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(batch.map(processFile));
-
-            for (const result of results) {
-                if (!result) continue;
-                const { file, metadata } = result;
-                const albumName = metadata.common.album || "Unknown Album";
-                const artist = metadata.common.artist || "Unknown Artist";
-
-                if (!tempLibrary[albumName]) {
-                    tempLibrary[albumName] = {
-                        name: albumName, artist: artist,
-                        coverArt: null, tracks: []
-                    };
-                }
-
-                if (metadata.common.picture && metadata.common.picture.length > 0 && !tempLibrary[albumName].coverArt) {
-                    const picture = metadata.common.picture[0];
-                    const coverResult = saveCoverArt(albumName, picture.data, picture.format);
-                    if (coverResult) {
-                        tempLibrary[albumName].coverArt = coverResult.thumb;
-                        tempLibrary[albumName].coverArtFull = coverResult.full;
-                    }
-                }
-
-                const fileSrc = `file://${file.path.replace(/\\/g, '/')}`;
-                const alreadyExists = tempLibrary[albumName].tracks.some(t => t.filePath === file.path);
-                if (!alreadyExists) {
-                    tempLibrary[albumName].tracks.push({
-                        id: file.path + Date.now() + Math.random(), title: metadata.common.title || file.name,
-                        artist, album: albumName, duration: metadata.format.duration || 0,
-                        filePath: file.path, src: fileSrc, coverArt: tempLibrary[albumName].coverArt, coverArtFull: tempLibrary[albumName].coverArtFull
-                    });
-                }
-            }
+        } catch (err) {
+            console.error('Scan folder error:', err);
+            setIsLoading(false);
+            setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
         }
+    }, []);
 
-        const { saveLibraryToDB } = await import('./utils/db');
-        await saveLibraryToDB(tempLibrary);
-        setLibraryAlbums(tempLibrary);
-        setIsLoading(false);
-    };
+    const handleScanFiles = useCallback(async () => {
+        if (!window.require) return;
+        const { ipcRenderer } = window.require('electron');
+        setIsLoading(true);
+        setScanProgress({ phase: 'discovering', scanned: 0, total: 0, currentFile: 'Opening file dialog...' });
+        try {
+            const result = await ipcRenderer.invoke('scan-files');
+            if (result.cancelled) {
+                setIsLoading(false);
+                setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
+            }
+        } catch (err) {
+            console.error('Scan files error:', err);
+            setIsLoading(false);
+            setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
+        }
+    }, []);
     const handleDeleteAlbum = async (albumName) => {
         await deleteAlbumFromDB(albumName);
         setLibraryAlbums(prev => {
@@ -151,6 +154,17 @@ const AppContent = () => {
             delete newLib[albumName];
             return newLib;
         });
+
+        if (currentTrack && currentTrack.album === albumName) {
+            if (audioRef && audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = "";
+            }
+            setIsPlaying(false);
+            setCurrentTrack({ id: "default", title: "", artist: "", album: "", duration: 0, coverArt: null, src: null });
+        }
+        setPlayQueue(prev => prev.filter(track => track.album !== albumName));
+
         setSelectedAlbum(null);
         setActiveView('library');
     };
@@ -162,16 +176,22 @@ const AppContent = () => {
         requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; });
     };
 
+    const pendingScrollRestore = useRef(null);
+
     const handleBackFromAlbum = useCallback(() => {
-        const savedPos = scrollPos;
+        pendingScrollRestore.current = scrollPos;
         setSelectedAlbum(null);
         setActiveView('library');
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (scrollRef.current) scrollRef.current.scrollTop = savedPos;
-            });
-        });
     }, [scrollPos]);
+
+    useLayoutEffect(() => {
+        if (activeView === 'library' && pendingScrollRestore.current !== null) {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = pendingScrollRestore.current;
+            }
+            pendingScrollRestore.current = null;
+        }
+    }, [activeView]);
 
     // Keyboard Shortcuts
     useEffect(() => {
@@ -179,7 +199,7 @@ const AppContent = () => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
             if (e.ctrlKey) {
-                switch(e.code) {
+                switch (e.code) {
                     case 'KeyS':
                         e.preventDefault();
                         setIsShuffle(!isShuffle);
@@ -192,7 +212,7 @@ const AppContent = () => {
                 return;
             }
 
-            switch(e.code) {
+            switch (e.code) {
                 case 'Space':
                     e.preventDefault();
                     togglePlay();
@@ -205,7 +225,6 @@ const AppContent = () => {
                     break;
                 case 'Escape':
                     if (showExitModal) setShowExitModal(false);
-                    else if (uploadModal.open) setUploadModal({ ...uploadModal, open: false });
                     else if (showQueue) setShowQueue(false);
                     else if (isFullScreen) setIsFullScreen(false);
                     else if (activeView === 'album-detail') handleBackFromAlbum();
@@ -214,10 +233,10 @@ const AppContent = () => {
                     toggleMute();
                     break;
                 case 'KeyK':
-                    handleSetVolume(Math.min(1, volume + 0.1));
+                    handleSetVolume(Math.min(1, Math.round(volume * 15 + 1) / 15));
                     break;
                 case 'KeyJ':
-                    handleSetVolume(Math.max(0, volume - 0.1));
+                    handleSetVolume(Math.max(0, Math.round(volume * 15 - 1) / 15));
                     break;
                 case 'KeyF':
                     setIsFullScreen(!isFullScreen);
@@ -229,7 +248,7 @@ const AppContent = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [togglePlay, handleNext, handlePrev, showExitModal, uploadModal.open, showQueue, isFullScreen, activeView, handleBackFromAlbum, toggleMute, volume, handleSetVolume, isShuffle, setIsShuffle, repeatMode, setRepeatMode]);
+    }, [togglePlay, handleNext, handlePrev, showExitModal, showQueue, isFullScreen, activeView, handleBackFromAlbum, toggleMute, volume, handleSetVolume, isShuffle, setIsShuffle, repeatMode, setRepeatMode]);
 
     const handleBatchDelete = async (albumNames) => {
         setIsDeleting(true);
@@ -239,6 +258,17 @@ const AppContent = () => {
             albumNames.forEach(name => delete newLib[name]);
             return newLib;
         });
+
+        if (currentTrack && albumNames.includes(currentTrack.album)) {
+            if (audioRef && audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = "";
+            }
+            setIsPlaying(false);
+            setCurrentTrack({ id: "default", title: "", artist: "", album: "", duration: 0, coverArt: null, src: null });
+        }
+        setPlayQueue(prev => prev.filter(track => !albumNames.includes(track.album)));
+
         setIsDeleting(false);
     };
 
@@ -290,10 +320,10 @@ const AppContent = () => {
             return;
         }
 
-        console.warn("Không tìm thấy album gốc của bài hát này.");
+        console.warn("Original album not found for this track.");
     };
 
-    const likedSongsAlbum = { name: "Bài hát đã thích", artist: "User Data", coverArt: "https://t.scdn.co/images/3099b3803ad9496896c43f22fe9be8c4.png", tracks: likedSongs };
+    const likedSongsAlbum = { name: "Liked Songs", artist: "User Data", coverArt: "https://t.scdn.co/images/3099b3803ad9496896c43f22fe9be8c4.png", tracks: likedSongs };
 
     // SEARCH LOGIC 
     const searchResults = useMemo(() => {
@@ -335,7 +365,8 @@ const AppContent = () => {
 
                     <Sidebar
                         libraryAlbums={libraryAlbums}
-                        onUpload={handleImportMusic}
+                        onScanFolder={handleScanFolder}
+                        onScanFiles={handleScanFiles}
                         onViewChange={(view) => { setActiveView(view); if (view !== 'search') setSearchQuery(""); }}
                         onAlbumSelect={navigateToAlbum}
                     />
@@ -349,8 +380,7 @@ const AppContent = () => {
                         </div>
 
                         {/* Scrollable Content Area */}
-                        <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
-                            {isLoading && <div className="text-center text-[#4FD6BE] font-mono tracking-widest mt-4 animate-pulse">SYSTEM_SCANNING...</div>}
+                        <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative" style={{ overflowAnchor: 'none' }}>
 
                             {isDeleting && (
                                 <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -396,15 +426,43 @@ const AppContent = () => {
                                         )}
                                     </div>
                                     <div className="p-6 pb-10">
-                                        <LibraryGrid albums={libraryAlbums} onSelect={navigateToAlbum} onUpload={handleImportMusic} isSearchMode={true} searchResults={searchResults} searchTab={searchTab} />
+                                        <LibraryGrid albums={libraryAlbums} onSelect={navigateToAlbum} onScanFolder={handleScanFolder} isSearchMode={true} searchResults={searchResults} searchTab={searchTab} />
                                     </div>
                                 </div>
                             ) : (
                                 <div className="p-6">
-                                    <LibraryGrid albums={libraryAlbums} onSelect={navigateToAlbum} onUpload={handleImportMusic} onBatchDelete={handleBatchDelete} />
+                                    <LibraryGrid albums={libraryAlbums} onSelect={navigateToAlbum} onScanFolder={handleScanFolder} onBatchDelete={handleBatchDelete} />
                                 </div>
                             )}
                         </div>
+
+                        {/* Floating Overlays inside main view */}
+                        {isLoading && (
+                            <div className="absolute bottom-6 right-6 z-50 bg-[#0e0e10]/95 border border-[#333] shadow-2xl rounded p-4 w-80 animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-none">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-4 h-4 border-2 border-[#4FD6BE] border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-[#4FD6BE] font-mono tracking-widest text-xs uppercase font-bold">
+                                        {scanProgress.phase === 'discovering' ? 'DISCOVERING_FILES...' :
+                                         scanProgress.phase === 'scanning' ? `SCANNING_METADATA [${scanProgress.scanned}/${scanProgress.total}]` :
+                                         scanProgress.phase === 'covers' ? `EXTRACTING_COVERS [${scanProgress.scanned}/${scanProgress.total}]` :
+                                         'SYSTEM_SCANNING...'}
+                                    </span>
+                                </div>
+                                {scanProgress.total > 0 && (
+                                    <div className="w-full h-[3px] bg-[#222] rounded overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-[#4FD6BE] to-[#FF6B35] transition-all duration-300"
+                                            style={{ width: `${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%` }}
+                                        ></div>
+                                    </div>
+                                )}
+                                {scanProgress.currentFile && (
+                                    <div className="text-[10px] text-[#888] font-mono mt-2 truncate" title={scanProgress.currentFile}>
+                                        {scanProgress.currentFile}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -419,29 +477,25 @@ const AppContent = () => {
             {/* Overlays */}
             {showQueue && <QueuePopup onClose={() => setShowQueue(false)} />}
             {isFullScreen && <FullScreenPlayer onClose={() => setIsFullScreen(false)} />}
-            <CustomModal isOpen={uploadModal.open} title="CONFIRM_UPLOAD" onConfirm={confirmUpload} onCancel={() => setUploadModal({ ...uploadModal, open: false })} confirmText="EXECUTE">
-                <div className="font-mono text-sm text-[#ccc]">DETECTED <span className="text-[#4FD6BE] font-bold">{uploadModal.files.length}</span> FILES.<br />INITIALIZE IMPORT SEQUENCE?</div>
-            </CustomModal>
-
             {/* Exit/Minimize Promt */}
-            <CustomModal 
-              isOpen={showExitModal} 
-              title="BACKGROUND_PLAY" 
-              onConfirm={() => handleExitChoice(true)} 
-              onCancel={() => handleExitChoice(false)} 
-              confirmText="MINIMIZE"
-              cancelText="QUIT"
+            <CustomModal
+                isOpen={showExitModal}
+                title="BACKGROUND_PLAY"
+                onConfirm={() => handleExitChoice(true)}
+                onCancel={() => handleExitChoice(false)}
+                confirmText="MINIMIZE"
+                cancelText="QUIT"
             >
                 <div className="font-mono text-sm text-[#ccc] mb-4 space-y-4">
                     <p>Keep music playing in the background?</p>
                     <p className="text-xs text-[#888]">If you choose MINIMIZE, the player will stay active in your system tray when closed. You can toggle this setting anytime from the tray icon right-click menu.</p>
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer mt-6 border-t border-[#333] pt-4 group">
-                    <input 
-                      type="checkbox" 
-                      checked={rememberExitChoice}
-                      onChange={(e) => setRememberExitChoice(e.target.checked)}
-                      className="w-4 h-4 rounded-sm border-[#555] bg-[#222] checked:bg-[#FF6B35] cursor-pointer appearance-none relative
+                    <input
+                        type="checkbox"
+                        checked={rememberExitChoice}
+                        onChange={(e) => setRememberExitChoice(e.target.checked)}
+                        className="w-4 h-4 rounded-sm border-[#555] bg-[#222] checked:bg-[#FF6B35] cursor-pointer appearance-none relative
                       before:content-[''] before:absolute before:inset-0 before:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%2220 6 9 17 4 12%22></polyline></svg>')] before:bg-no-repeat before:bg-center before:bg-[length:12px] checked:before:block before:hidden border border-solid"
                     />
                     <span className="text-[11px] font-mono tracking-widest text-[#888] uppercase select-none group-hover:text-white transition-colors">

@@ -10,10 +10,10 @@ const TitleBar = () => {
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.send(cmd);
         } catch (error) {
-            console.error("Lỗi gửi lệnh Electron:", error);
+            console.error("Error sending Electron command:", error);
         }
     } else {
-        console.warn("Không tìm thấy môi trường Electron. Lệnh:", cmd);
+        console.warn("Electron environment not found. Command:", cmd);
     }
   };
 
@@ -23,7 +23,7 @@ const TitleBar = () => {
         {/* Left: Title */}
         <div className="flex items-center gap-2 text-[#555]">
             <Terminal size={12} className="text-[#FF6B35]" />
-            <span className="text-[10px] font-mono tracking-widest uppercase">RETROGRADE // Ver 1.0</span>
+            <span className="text-[10px] font-mono tracking-widest uppercase">RETROGRADE // Ver 1.1</span>
         </div>
 
         {/* Right: Window Controls */}
@@ -32,7 +32,7 @@ const TitleBar = () => {
             <button 
                 onClick={() => sendCommand('window-minimize')} 
                 className="p-1 hover:bg-[#333] text-[#888] hover:text-white rounded-sm transition-colors app-no-drag"
-                title="Thu nhỏ"
+                title="Minimize"
             >
                 <Minus size={14} />
             </button>
@@ -40,7 +40,7 @@ const TitleBar = () => {
             <button 
                 onClick={() => sendCommand('window-maximize')} 
                 className="p-1 hover:bg-[#333] text-[#888] hover:text-white rounded-sm transition-colors app-no-drag"
-                title="Phóng to"
+                title="Maximize"
             >
                 <Square size={12} />
             </button>
@@ -48,7 +48,7 @@ const TitleBar = () => {
             <button 
                 onClick={() => sendCommand('window-close')} 
                 className="p-1 hover:bg-[#FF6B35] text-[#888] hover:text-black rounded-sm transition-colors group app-no-drag"
-                title="Đóng"
+                title="Close"
             >
                 <X size={14} />
             </button>

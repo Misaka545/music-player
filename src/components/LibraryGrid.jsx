@@ -1,6 +1,6 @@
 // src/components/LibraryGrid.jsx
-import React, { memo, useState } from 'react';
-import { Play, Disc, FolderPlus, ListMusic, Trash2, CheckSquare, Square, X, Heart } from 'lucide-react';
+import React, { memo, useState, useRef, useEffect } from 'react';
+import { Play, Disc, FolderPlus, ListMusic, Trash2, CheckSquare, Square, X, Heart, ArrowUpDown } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
 import CoverImage from './CoverImage';
@@ -8,7 +8,7 @@ import CoverImage from './CoverImage';
 const AlbumCard = memo(({ item, type, idx, onSelect, onPlay, isPlaying, selectable, selected, onToggleSelect, onContextMenu }) => {
     const isTrack = type === 'track';
     const title = isTrack ? item.title : item.name;
-    const subtitle = isTrack ? item.artist : (type === 'playlist' ? `${item.tracks?.length || 0} bài` : item.artist);
+    const subtitle = isTrack ? item.artist : (type === 'playlist' ? `${item.tracks?.length || 0} tracks` : item.artist);
 
     return (
         <div
@@ -49,7 +49,7 @@ const AlbumCard = memo(({ item, type, idx, onSelect, onPlay, isPlaying, selectab
                             onClick={(e) => { e.stopPropagation(); onPlay(item, type); }}
                             className="w-10 h-10 bg-[#EAEAEA] text-black flex items-center justify-center shadow-lg hover:scale-110 hover:bg-white transition-transform"
                             style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                            title="Phát ngay"
+                            title="Play Now"
                         >
                             <Play size={20} fill="currentColor" className="ml-1" />
                         </button>
@@ -68,13 +68,35 @@ const AlbumCard = memo(({ item, type, idx, onSelect, onPlay, isPlaying, selectab
     );
 });
 
-const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults, searchTab = 'all', onBatchDelete }) => {
+const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResults, searchTab = 'all', onBatchDelete }) => {
     const { startAlbumPlayback, currentTrack, addToQueue, toggleLikeMultiple, likedSongs } = usePlayer();
     const [selectMode, setSelectMode] = useState(false);
     const [selectedAlbums, setSelectedAlbums] = useState(new Set());
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, album: null, type: 'album' });
     const [singleDeleteTarget, setSingleDeleteTarget] = useState(null);
+    const [sortOption, setSortOption] = useState('name_asc');
+    const [isSortOpen, setIsSortOpen] = useState(false);
+    const sortRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (sortRef.current && !sortRef.current.contains(e.target)) {
+                setIsSortOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const sortOptions = [
+        { value: 'name_asc', label: 'NAME [A-Z]' },
+        { value: 'name_desc', label: 'NAME [Z-A]' },
+        { value: 'artist_asc', label: 'ARTIST [A-Z]' },
+        { value: 'artist_desc', label: 'ARTIST [Z-A]' },
+        { value: 'year_desc', label: 'NEWEST' },
+        { value: 'year_asc', label: 'OLDEST' },
+    ];
 
     const handleContextMenu = (e, album, type) => {
         if (selectMode) return;
@@ -159,9 +181,9 @@ const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults, 
             <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[#333] bg-[#111]/50 rounded-lg">
                 <FolderPlus size={48} className="text-[#333] mb-4" />
                 <p className="text-lg font-bold text-[#555] tracking-widest">DATABASE_EMPTY</p>
-                <label className="mt-4 px-6 py-2 bg-[#222] border border-[#444] text-[#ccc] font-mono text-xs hover:bg-[#333] hover:text-white cursor-pointer transition-all">
-                    INITIATE_SCAN <input type="file" webkitdirectory="true" directory="" multiple onChange={onUpload} className="hidden" />
-                </label>
+                <button onClick={onScanFolder} className="mt-4 px-6 py-2 bg-[#222] border border-[#444] text-[#ccc] font-mono text-xs hover:bg-[#333] hover:text-white cursor-pointer transition-all">
+                    INITIATE_SCAN
+                </button>
             </div>
         );
     }
@@ -187,7 +209,16 @@ const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults, 
     );
 
     if (!isSearchMode) {
-        const albumList = Object.values(albums);
+        const albumList = Object.values(albums).sort((a, b) => {
+            if (sortOption === 'name_asc') return a.name.localeCompare(b.name);
+            if (sortOption === 'name_desc') return b.name.localeCompare(a.name);
+            if (sortOption === 'artist_asc') return (a.artist || '').localeCompare(b.artist || '');
+            if (sortOption === 'artist_desc') return (b.artist || '').localeCompare(a.artist || '');
+            if (sortOption === 'year_desc') return (b.year || 0) - (a.year || 0);
+            if (sortOption === 'year_asc') return (a.year || 0) - (b.year || 0);
+            return 0;
+        });
+        
         return (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {/* Header with batch actions */}
@@ -214,12 +245,43 @@ const LibraryGrid = ({ albums, onSelect, onUpload, isSearchMode, searchResults, 
                                 </button>
                             </>
                         ) : (
-                            <button
-                                onClick={() => setSelectMode(true)}
-                                className="flex items-center gap-1 px-3 py-1 border border-[#333] text-[#888] text-[10px] font-mono tracking-wider hover:border-[#555] hover:text-white transition-colors"
-                            >
-                                <CheckSquare size={12} /> SELECT
-                            </button>
+                            <>
+                                <div className="relative" ref={sortRef}>
+                                    <button 
+                                        onClick={() => setIsSortOpen(!isSortOpen)}
+                                        className={`flex items-center gap-2 px-3 py-1 border text-[10px] font-mono tracking-wider transition-colors cursor-pointer ${
+                                            isSortOpen ? 'bg-[#333] border-[#555] text-white' : 'bg-transparent border-[#333] text-[#888] hover:border-[#555] hover:text-white'
+                                        }`}
+                                    >
+                                        <ArrowUpDown size={12} className={isSortOpen ? "text-[#E8C060]" : "text-[#888]"} />
+                                        {sortOptions.find(o => o.value === sortOption)?.label}
+                                    </button>
+                                    
+                                    {isSortOpen && (
+                                        <div className="absolute top-full right-0 mt-1 w-40 bg-[#1a1a1a] border border-[#333] shadow-2xl z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {sortOptions.map(opt => (
+                                                <div 
+                                                    key={opt.value}
+                                                    onClick={() => { setSortOption(opt.value); setIsSortOpen(false); }}
+                                                    className={`px-3 py-2 text-[10px] font-mono cursor-pointer transition-colors flex items-center gap-2 ${
+                                                        sortOption === opt.value 
+                                                            ? 'bg-[#FF6B35]/10 text-[#FF6B35] border-l-2 border-[#FF6B35]' 
+                                                            : 'text-[#888] hover:bg-[#333] hover:text-white border-l-2 border-transparent'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => setSelectMode(true)}
+                                    className="flex items-center gap-1 px-3 py-1 border border-[#333] text-[#888] text-[10px] font-mono tracking-wider hover:border-[#555] hover:text-white transition-colors"
+                                >
+                                    <CheckSquare size={12} /> SELECT
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

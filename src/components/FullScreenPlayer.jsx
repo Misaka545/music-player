@@ -27,15 +27,27 @@ const FullScreenPlayer = ({ onClose }) => {
       
       {/* Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] bg-[#FF6B35]/20 blur-[120px] rounded-full mix-blend-screen"></div>
-          <div className="absolute top-[20%] right-[20%] w-[50%] h-[50%] bg-[#4FD6BE]/10 blur-[100px] rounded-full mix-blend-screen"></div>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-3xl"></div>
+          {(currentTrack.coverArt || currentTrack.coverArtFull) ? (
+              <div className="absolute inset-0 opacity-40 blur-[120px] scale-150 transform-gpu">
+                  <CoverImage 
+                      src={currentTrack.coverArt || currentTrack.coverArtFull} 
+                      className="w-full h-full" 
+                      highRes={false} 
+                  />
+              </div>
+          ) : (
+              <>
+                  <div className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] bg-[#FF6B35]/20 blur-[120px] rounded-full mix-blend-screen"></div>
+                  <div className="absolute top-[20%] right-[20%] w-[50%] h-[50%] bg-[#4FD6BE]/10 blur-[100px] rounded-full mix-blend-screen"></div>
+              </>
+          )}
+          <div className="absolute inset-0 bg-black/60"></div>
       </div>
 
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-6 md:px-12">
+      <div className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-6 py-6 md:px-12">
         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><ChevronDown size={32} strokeWidth={1.5} /></button>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center mt-2">
             <span className="text-[10px] font-bold tracking-[0.2em] text-[#888] uppercase">Now Playing</span>
             <span className="text-xs font-bold tracking-widest uppercase text-white truncate max-w-[200px]">{currentTrack.album || "SINGLE TRACK"}</span>
         </div>
@@ -43,22 +55,24 @@ const FullScreenPlayer = ({ onClose }) => {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="relative z-10 flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 px-8 pb-12 overflow-y-auto custom-scrollbar">
+      <div className="relative z-10 flex-1 w-full h-full flex flex-col lg:flex-row items-center justify-center gap-12 px-8 pt-20 pb-12 overflow-y-auto custom-scrollbar">
         
         {/* LEFT: ARTWORK */}
         <div className="flex-1 flex justify-center lg:justify-end w-full max-w-xl">
-            <div className="aspect-square w-full max-w-[400px] lg:max-w-[550px] relative group">
-                <div className="absolute -inset-4 border border-white/5 rounded-sm pointer-events-none"></div>
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-[#FF6B35]"></div>
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-[#4FD6BE]"></div>
-                <div className="w-full h-full shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] bg-[#1a1a1a] relative overflow-hidden rounded-sm">
-                    <CoverImage src={currentTrack.coverArtFull || currentTrack.coverArt} alt={currentTrack.title} isPlaying={isPlaying} className="w-full h-full" />
+            <div className="aspect-square w-full max-w-[400px] lg:max-w-[550px] relative group p-4">
+                <div className="absolute inset-0 border border-white/5 rounded-xl pointer-events-none"></div>
+                <div className="relative w-full h-full shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] bg-[#1a1a1a] rounded-sm">
+                    <div className="absolute -top-[1px] -left-[1px] w-6 h-6 border-t-2 border-l-2 border-[#FF6B35] z-10 pointer-events-none"></div>
+                    <div className="absolute -bottom-[1px] -right-[1px] w-6 h-6 border-b-2 border-r-2 border-[#4FD6BE] z-10 pointer-events-none"></div>
+                    <div className="w-full h-full overflow-hidden rounded-sm relative">
+                        <CoverImage src={currentTrack.coverArtFull || currentTrack.coverArt} alt={currentTrack.title} isPlaying={isPlaying} className="w-full h-full" highRes={true} />
+                    </div>
                 </div>
             </div>
         </div>
 
         {/* RIGHT: CONTROLS & QUEUE LIST */}
-        <div className="flex-1 w-full max-w-xl flex flex-col gap-8 lg:items-start items-center text-center lg:text-left h-full max-h-[600px]">
+        <div className="flex-1 w-full max-w-[400px] lg:max-w-[550px] flex flex-col gap-8 lg:items-start items-center text-center lg:text-left lg:aspect-square">
             
             {/* Controls Block */}
             <div className="w-full flex-shrink-0">
@@ -127,7 +141,7 @@ const FullScreenPlayer = ({ onClose }) => {
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); removeFromQueue(realIndex); }}
                                         className="p-1.5 text-[#555] hover:text-[#FF6B35] hover:bg-[#333] rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                                        title="Xóa khỏi hàng đợi"
+                                        title="Remove from queue"
                                     >
                                         <X size={14} />
                                     </button>
