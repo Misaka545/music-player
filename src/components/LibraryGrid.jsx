@@ -1,6 +1,6 @@
 // src/components/LibraryGrid.jsx
-import React, { memo, useState, useRef, useEffect } from 'react';
-import { Play, Disc, FolderPlus, ListMusic, Trash2, CheckSquare, Square, X, Heart, ArrowUpDown } from 'lucide-react';
+import React, { memo, useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { Play, Disc, FolderPlus, ListMusic, Trash2, CheckSquare, Square, X, Heart, ArrowUpDown, ListPlus, Check } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import CustomModal from './CustomModal';
 import CoverImage from './CoverImage';
@@ -69,7 +69,7 @@ const AlbumCard = memo(({ item, type, idx, onSelect, onPlay, isPlaying, selectab
 });
 
 const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResults, searchTab = 'all', onBatchDelete }) => {
-    const { startAlbumPlayback, currentTrack, addToQueue, toggleLikeMultiple, likedSongs } = usePlayer();
+    const { startAlbumPlayback, currentTrack, addToQueue, toggleLikeMultiple, likedSongs, playlists, addAlbumToPlaylist, removeTrackFromPlaylist } = usePlayer();
     const [selectMode, setSelectMode] = useState(false);
     const [selectedAlbums, setSelectedAlbums] = useState(new Set());
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -78,6 +78,7 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
     const [sortOption, setSortOption] = useState('name_asc');
     const [isSortOpen, setIsSortOpen] = useState(false);
     const sortRef = useRef(null);
+    const contextMenuRef = useRef(null);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -88,6 +89,27 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useLayoutEffect(() => {
+        if (contextMenu.visible && contextMenuRef.current) {
+            const rect = contextMenuRef.current.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let newX = contextMenu.x;
+            let newY = contextMenu.y;
+            
+            const bottomMargin = 104;
+            if (rect.right > vw - 8) newX = vw - rect.width - 8;
+            if (rect.bottom > vh - bottomMargin) newY = vh - rect.height - bottomMargin;
+            
+            newX = Math.max(8, newX);
+            newY = Math.max(8, newY);
+            
+            if (newX !== contextMenu.x || newY !== contextMenu.y) {
+                setContextMenu(prev => ({ ...prev, x: newX, y: newY }));
+            }
+        }
+    }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
     const sortOptions = [
         { value: 'name_asc', label: 'NAME [A-Z]' },
@@ -306,7 +328,7 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
                 {contextMenu.visible && (
                     <>
                         <div className="fixed inset-0 z-[99]" onClick={closeContextMenu} onContextMenu={(e) => { e.preventDefault(); closeContextMenu(); }}></div>
-                        <div className="fixed bg-[#1a1a1a] border border-[#333] shadow-2xl z-[100] w-60 p-1" style={{ top: contextMenu.y, left: contextMenu.x }}>
+                        <div ref={contextMenuRef} className="fixed bg-[#1a1a1a] border border-[#333] shadow-2xl z-[100] w-60 p-1" style={{ top: contextMenu.y, left: contextMenu.x }}>
                             <div className="px-3 py-2 text-[9px] font-bold text-[#FF6B35] border-b border-[#333] mb-1 font-mono tracking-wider">ALBUM_OPERATIONS</div>
                             
                             <button onClick={handleAddAlbumToQueue} className="w-full text-left px-3 py-2 hover:bg-[#333] text-xs text-white flex items-center gap-3 transition-colors">
@@ -334,6 +356,37 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
                                     <span>DELETE_{contextMenu.type === 'playlist' ? 'PLAYLIST' : 'ALBUM'}</span>
                                 </button>
                             )}
+
+                            {/* ADD TO PLAYLIST sub-menu */}
+                            {contextMenu.album && contextMenu.album.tracks && (
+                                <>
+                                    <div className="h-[1px] bg-[#333] my-1"></div>
+                                    <div className="px-3 py-1 text-[8px] font-bold text-[#555] uppercase tracking-wider">ADD_TO_PLAYLIST</div>
+                                    <div className="max-h-40 overflow-y-auto custom-scrollbar">
+                                        {playlists.length === 0 ? <div className="px-3 py-2 text-[10px] text-[#555] italic">NO_DATA</div> : playlists.map(pl => {
+                                            const allExist = contextMenu.album.tracks.every(t => pl.tracks.some(pt => pt.title === t.title));
+                                            return (
+                                                <button 
+                                                    key={pl.id} 
+                                                    onClick={() => {
+                                                        if (allExist) {
+                                                            contextMenu.album.tracks.forEach(t => removeTrackFromPlaylist(pl.id, t));
+                                                        } else {
+                                                            addAlbumToPlaylist(pl.id, contextMenu.album.tracks);
+                                                        }
+                                                        closeContextMenu();
+                                                    }} 
+                                                    className={`w-full text-left px-3 py-2 hover:bg-[#333] text-xs text-white flex items-center gap-2 transition-colors`}
+                                                >
+                                                    <div className={`w-1 h-1 ${allExist ? 'bg-[#FF6B35]' : 'bg-[#E8C060]'}`}></div>
+                                                    <span className="flex-1 truncate">{pl.name}</span>
+                                                    {allExist && <Check size={12} className="text-[#FF6B35] ml-auto"/>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </>
                 )}
@@ -341,7 +394,7 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
         );
     }
 
-    const { tracks, albums: searchAlbums, playlists } = searchResults;
+    const { tracks, albums: searchAlbums, playlists: searchPlaylists } = searchResults;
     const showTracks = searchTab === 'all' || searchTab === 'tracks';
     const showAlbums = searchTab === 'all' || searchTab === 'albums';
     const showPlaylists = searchTab === 'all' || searchTab === 'playlists';
@@ -360,13 +413,13 @@ const LibraryGrid = ({ albums, onSelect, onScanFolder, isSearchMode, searchResul
                     {renderGrid(searchAlbums, 'album')}
                 </div>
             )}
-            {showPlaylists && playlists.length > 0 && (
+            {showPlaylists && searchPlaylists.length > 0 && (
                 <div>
-                    <h2 className="text-sm font-bold text-[#888] mb-4 font-mono tracking-widest uppercase border-b border-[#333] pb-2">Playlists ({playlists.length})</h2>
-                    {renderGrid(playlists, 'playlist')}
+                    <h2 className="text-sm font-bold text-[#888] mb-4 font-mono tracking-widest uppercase border-b border-[#333] pb-2">Playlists ({searchPlaylists.length})</h2>
+                    {renderGrid(searchPlaylists, 'playlist')}
                 </div>
             )}
-            {tracks.length === 0 && searchAlbums.length === 0 && playlists.length === 0 && (
+            {tracks.length === 0 && searchAlbums.length === 0 && searchPlaylists.length === 0 && (
                 <div className="text-center py-20 text-[#555] font-mono text-xs tracking-widest">
                     NO RESULTS FOUND FOR QUERY
                 </div>

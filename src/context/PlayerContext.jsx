@@ -329,6 +329,31 @@ export const PlayerProvider = ({ children }) => {
         }));
     };
 
+    const removeTrackFromPlaylist = (playlistId, track) => {
+        setPlaylists(prev => prev.map(pl => {
+            if (pl.id === playlistId) {
+                const newTracks = pl.tracks.filter(t => t.title !== track.title);
+                return { ...pl, tracks: newTracks };
+            }
+            return pl;
+        }));
+    };
+
+    const addAlbumToPlaylist = (playlistId, albumTracks) => {
+        setPlaylists(prev => prev.map(pl => {
+            if (pl.id === playlistId) {
+                const newTracks = [...pl.tracks];
+                albumTracks.forEach(track => {
+                    if (!newTracks.some(t => t.title === track.title)) {
+                        newTracks.push(track);
+                    }
+                });
+                return { ...pl, tracks: newTracks, coverArt: pl.coverArt || albumTracks[0]?.coverArt };
+            }
+            return pl;
+        }));
+    };
+
     const updatePlaylistCover = (playlistId, newCoverUrl) => {
         setPlaylists(prev => prev.map(pl => pl.id === playlistId ? { ...pl, coverArt: newCoverUrl } : pl));
     };
@@ -406,7 +431,7 @@ export const PlayerProvider = ({ children }) => {
             isPlaying, setIsPlaying, volume, setVolume, currentTime, setCurrentTime,
             currentTrack, setCurrentTrack, playQueue, setPlayQueue, isShuffle, setIsShuffle, repeatMode, setRepeatMode,
             togglePlay, handleNext, handlePrev, startAlbumPlayback,
-            playlists, createPlaylist, addTrackToPlaylist, deletePlaylist, audioRef,
+            playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist, addAlbumToPlaylist, deletePlaylist, audioRef,
             toggleLikeMultiple, likedSongs, toggleLike,
             isLiked: checkIsLiked(currentTrack),
             checkIsLiked, updatePlaylistCover, toggleMute, isMuted,

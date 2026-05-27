@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Play, Heart, MoreHorizontal, Disc, Plus, Check, Trash2, Image as ImageIcon, Upload, ListPlus, ArrowLeft } from 'lucide-react'; 
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
 import CustomModal from './CustomModal';
 import CoverImage from './CoverImage';
+import { saveCoverArt, deleteCoverFiles } from '../utils/db';
 
 const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => { 
-  const { startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover, toggleLikeMultiple, likedSongs, addToQueue } = usePlayer();
+  const { startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, removeTrackFromPlaylist, toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover, toggleLikeMultiple, likedSongs, addToQueue } = usePlayer();
   
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, track: null });
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -25,7 +26,9 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
   const fileInputRef = useRef(null);
 
   const isUserPlaylist = playlists.some(pl => pl.id === album.id);
-  const isUploadedAlbum = !isUserPlaylist && album.name !== "Liked Songs";
+  const isLikedSongs = album.name === "Liked Songs";
+  const showTrackCovers = isUserPlaylist || isLikedSongs;
+  const isUploadedAlbum = !isUserPlaylist && !isLikedSongs;
   const isAlbumLiked = album.tracks.length > 0 && album.tracks.every(t => likedSongs.some(ls => ls.title === t.title));
 
   useEffect(() => {
@@ -42,6 +45,27 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useLayoutEffect(() => {
+      if (contextMenu.visible && menuRef.current) {
+          const rect = menuRef.current.getBoundingClientRect();
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          let newX = contextMenu.x;
+          let newY = contextMenu.y;
+          
+          const bottomMargin = 104; 
+          if (rect.right > vw - 8) newX = vw - rect.width - 8;
+          if (rect.bottom > vh - bottomMargin) newY = vh - rect.height - bottomMargin;
+          
+          newX = Math.max(8, newX);
+          newY = Math.max(8, newY);
+          
+          if (newX !== contextMenu.x || newY !== contextMenu.y) {
+              setContextMenu(prev => ({ ...prev, x: newX, y: newY }));
+          }
+      }
+  }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
+
   if (!album) return null;
 
   const albumTracks = album.tracks.map(t => ({ ...t, coverArt: t.coverArt || album.coverArt }));
@@ -49,12 +73,51 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
   const handleContextMenu = (e, track) => { e.preventDefault(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, track: track }); };
   const closeContextMenu = () => setContextMenu({ ...contextMenu, visible: false });
   const handleToggleLikeSingle = () => { if (contextMenu.track) toggleLike(contextMenu.track); closeContextMenu(); }
-  const handleAddToPlaylist = (playlistId) => { if (contextMenu.track) addTrackToPlaylist(playlistId, contextMenu.track); closeContextMenu(); };
+  const handleAddToPlaylist = (playlistId) => {
+    if (contextMenu.track) {
+      const pl = playlists.find(p => p.id === playlistId);
+      const exists = pl && pl.tracks.some(t => t.title === contextMenu.track?.title);
+      if (exists) {
+        removeTrackFromPlaylist(playlistId, contextMenu.track);
+      } else {
+        addTrackToPlaylist(playlistId, contextMenu.track);
+      }
+    }
+    closeContextMenu();
+  };
   const handleDeletePlaylistClick = () => { setShowSettingsMenu(false); setIsDeletePlaylistModalOpen(true); };
   const confirmDeletePlaylist = () => { deletePlaylist(album.id); setIsDeletePlaylistModalOpen(false); if (onBack) setTimeout(() => onBack(), 100); };
   const handleDeleteAlbumClick = () => { setShowSettingsMenu(false); setIsDeleteAlbumModalOpen(true); };
   const confirmDeleteAlbum = () => { if (onDeleteAlbum) onDeleteAlbum(); setIsDeleteAlbumModalOpen(false); };
-  const handleCoverUpload = (e) => { const file = e.target.files[0]; if (file) { const objectUrl = URL.createObjectURL(file); updatePlaylistCover(album.id, objectUrl); setShowSettingsMenu(false); } };
+  const handleCoverUpload = async (e) => { 
+      const file = e.target.files[0]; 
+      if (file) { 
+          const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+          if (!validTypes.includes(file.type)) {
+              alert("Unsupported image format. Please use JPG, PNG, or WEBP.");
+              e.target.value = '';
+              return;
+          }
+          const buffer = await file.arrayBuffer();
+          deleteCoverFiles(`playlist_${album.id}`);
+          const urls = saveCoverArt(`playlist_${album.id}`, buffer, file.type);
+          if (urls) {
+              const cacheBuster = `?t=${Date.now()}`;
+              updatePlaylistCover(album.id, urls.full + cacheBuster);
+          } else {
+              const reader = new FileReader();
+              reader.onloadend = () => updatePlaylistCover(album.id, reader.result);
+              reader.readAsDataURL(file);
+          }
+          setShowSettingsMenu(false); 
+      }
+      e.target.value = '';
+  };
+  const handleRemoveCover = () => {
+      deleteCoverFiles(`playlist_${album.id}`);
+      updatePlaylistCover(album.id, null);
+      setShowSettingsMenu(false);
+  };
   const handleLikeAlbum = () => { toggleLikeMultiple(album.tracks); };
   const isContextMenuTrackLiked = contextMenu.track ? checkIsLiked(contextMenu.track) : false;
 
@@ -134,20 +197,22 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
                         {isUserPlaylist && (
                             <>
                                 <button onClick={() => fileInputRef.current.click()} className="w-full text-left px-3 py-2 text-xs text-[#ccc] hover:bg-[#333] flex items-center gap-2"><Upload size={14}/> CHANGE_COVER</button>
-                                <button onClick={handleDeletePlaylistClick} className="w-full text-left px-3 py-2 text-xs text-[#ccc] hover:bg-[#333] flex items-center gap-2"><Trash2 size={14}/> DELETE_PLAYLIST</button>
+                                {album.coverArt && <button onClick={handleRemoveCover} className="w-full text-left px-3 py-2 text-xs text-[#FF6B35] hover:bg-[#333] flex items-center gap-2 transition-colors"><Trash2 size={14}/> REMOVE_COVER</button>}
+                                <button onClick={handleDeletePlaylistClick} className="w-full text-left px-3 py-2 text-xs text-[#FF6B35] hover:bg-[#333] flex items-center gap-2 transition-colors"><Trash2 size={14}/> DELETE_PLAYLIST</button>
                             </>
                         )}
                         {isUploadedAlbum && <button onClick={handleDeleteAlbumClick} className="w-full text-left px-3 py-2 text-xs text-[#ccc] hover:bg-[#333] flex items-center gap-2"><Trash2 size={14}/> DELETE_ALBUM</button>}
                     </div>
                 )}
             </div>
-            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} className="hidden" />
+            <input type="file" accept="image/jpeg, image/png, image/webp" ref={fileInputRef} onChange={handleCoverUpload} className="hidden" />
         </div>
 
         {/* TRACKLIST GRID */}
         <div className="px-8 mt-4">
-            <div className="grid grid-cols-[50px_1fr_80px] gap-4 py-2 border-b border-[#333] text-[9px] tracking-[0.2em] text-[#555] uppercase mb-2 font-mono">
+            <div className={`grid ${showTrackCovers ? 'grid-cols-[50px_40px_1fr_80px]' : 'grid-cols-[50px_1fr_80px]'} gap-4 py-2 border-b border-[#333] text-[9px] tracking-[0.2em] text-[#555] uppercase mb-2 font-mono`}>
                 <div className="text-center">#</div>
+                {showTrackCovers && <div></div>}
                 <div>Operation_Log</div>
                 <div className="text-right">Duration</div>
             </div>
@@ -156,11 +221,16 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
                 const isContextMenuActive = contextMenu.visible && contextMenu.track?.title === track.title;
                 return (
                     <div key={i} onClick={() => handlePlay(i)} onContextMenu={(e) => handleContextMenu(e, track)}
-                        className={`group grid grid-cols-[50px_1fr_80px] gap-4 py-3 cursor-pointer border-b border-[#1a1a1a] items-center transition-all relative overflow-hidden ${isActive ? 'bg-[#FF6B35]/10' : 'hover:bg-[#ffffff]/5'} ${isContextMenuActive ? 'bg-white/10' : ''}`}>
+                        className={`group grid ${showTrackCovers ? 'grid-cols-[50px_40px_1fr_80px]' : 'grid-cols-[50px_1fr_80px]'} gap-4 py-3 cursor-pointer border-b border-[#1a1a1a] items-center transition-all relative overflow-hidden ${isActive ? 'bg-[#FF6B35]/10' : 'hover:bg-[#ffffff]/5'} ${isContextMenuActive ? 'bg-white/10' : ''}`}>
                         <div className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-[#FF6B35]' : 'bg-[#4FD6BE] -translate-x-full group-hover:translate-x-0'} transition-transform`}></div>
                         <div className={`text-center font-mono ${isActive ? 'text-[#FF6B35]' : 'text-[#444] group-hover:text-[#4FD6BE]'}`}>
                             {isActive ? <img src="https://open.spotifycdn.com/cdn/images/equaliser-animated-green.f93a2bf4.gif" className="w-3 h-3 mx-auto opacity-50 grayscale" /> : `0${i+1}`}
                         </div>
+                        {showTrackCovers && (
+                            <div className="w-8 h-8 flex-shrink-0 bg-[#222] border border-[#2a2a2a] overflow-hidden">
+                                <CoverImage src={track.coverArt} alt={track.title} type="album" size="sm" className="w-full h-full" />
+                            </div>
+                        )}
                         <div className="flex flex-col">
                             <span className={`text-sm font-bold ${isActive ? 'text-[#FF6B35]' : 'text-[#ccc] group-hover:text-white'} transition-colors`}>{track.title}</span>
                             <span className="text-[10px] text-[#444] group-hover:text-[#666] font-mono uppercase tracking-wider">{track.artist}</span>
@@ -175,7 +245,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
         {contextMenu.visible && (
             <>
                 <div className="fixed inset-0 z-[99]" onClick={closeContextMenu} onContextMenu={(e) => { e.preventDefault(); closeContextMenu(); }}></div>
-                <div className="fixed bg-[#1a1a1a] border border-[#333] shadow-2xl z-[100] w-60 p-1" style={{ top: contextMenu.y, left: contextMenu.x }}>
+                <div ref={menuRef} className="fixed bg-[#1a1a1a] border border-[#333] shadow-2xl z-[100] w-60 p-1" style={{ top: contextMenu.y, left: contextMenu.x }}>
                     <div className="px-3 py-2 text-[9px] font-bold text-[#4FD6BE] border-b border-[#333] mb-1 font-mono tracking-wider">COMMAND_MENU</div>
                     <button onClick={handleToggleLikeSingle} className="w-full text-left px-3 py-2 hover:bg-[#333] text-xs text-white flex items-center gap-3">
                         <Heart size={14} className={isContextMenuTrackLiked ? "text-[#FF6B35] fill-[#FF6B35]" : "text-[#555]"} />
@@ -194,8 +264,8 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
                         {playlists.length === 0 ? <div className="px-3 py-2 text-[10px] text-[#555] italic">NO_DATA</div> : playlists.map(pl => {
                             const exists = pl.tracks.some(t => t.title === contextMenu.track?.title);
                             return (
-                                <button key={pl.id} onClick={() => !exists && handleAddToPlaylist(pl.id)} className={`w-full text-left px-3 py-2 hover:bg-[#333] text-xs text-white flex items-center gap-2 ${exists ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <div className="w-1 h-1 bg-[#E8C060]"></div> {pl.name} {exists && <Check size={12} className="text-[#FF6B35] ml-auto"/>}
+                                <button key={pl.id} onClick={() => handleAddToPlaylist(pl.id)} className={`w-full text-left px-3 py-2 hover:bg-[#333] text-xs text-white flex items-center gap-2`}>
+                                    <div className={`w-1 h-1 ${exists ? 'bg-[#FF6B35]' : 'bg-[#E8C060]'}`}></div> {pl.name} {exists && <Check size={12} className="text-[#FF6B35] ml-auto"/>}
                                 </button>
                             );
                         })}

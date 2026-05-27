@@ -69,7 +69,7 @@ const hashName = (str) => {
     return Math.abs(hash).toString(36);
 };
 
-const deleteCoverFiles = (albumName) => {
+export const deleteCoverFiles = (albumName) => {
     if (!os || !path || !fs) return;
     const coverDir = path.join(os.homedir(), '.retrograde', 'covers');
     const safeId = hashName(albumName);

@@ -390,13 +390,17 @@ const AppContent = () => {
                             )}
 
                             {/* ROUTING VIEWS */}
-                            {activeView === 'album-detail' && selectedAlbum ? (
-                                <AlbumDetail
-                                    album={selectedAlbum}
-                                    onBack={handleBackFromAlbum}
-                                    onDeleteAlbum={() => handleDeleteAlbum(selectedAlbum.name)}
-                                />
-                            ) : activeView === 'liked-songs' ? (
+                            {activeView === 'album-detail' && selectedAlbum ? (() => {
+                                const livePlaylist = playlists.find(pl => pl.id === selectedAlbum.id);
+                                const liveAlbum = livePlaylist || selectedAlbum;
+                                return (
+                                    <AlbumDetail
+                                        album={liveAlbum}
+                                        onBack={handleBackFromAlbum}
+                                        onDeleteAlbum={() => handleDeleteAlbum(selectedAlbum.name)}
+                                    />
+                                );
+                            })() : activeView === 'liked-songs' ? (
                                 <div className="h-full animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     {likedSongs.length > 0 ? (
                                         <AlbumDetail album={likedSongsAlbum} onBack={() => setActiveView('library')} />
