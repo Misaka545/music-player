@@ -6,7 +6,7 @@ import { formatTime } from '../utils/timeUtils';
 import CoverImage from './CoverImage';
 
 const QueuePopup = ({ onClose }) => {
-  const { playQueue, currentTrackIndex, startAlbumPlayback, removeFromQueue } = usePlayer();
+  const { playQueue, currentTrackIndex, startAlbumPlayback, removeFromQueue, setPlayQueue, setCurrentTrackIndex } = usePlayer();
   const popupRef = useRef(null);
 
   useEffect(() => {
@@ -31,9 +31,28 @@ const QueuePopup = ({ onClose }) => {
                 <span className="w-2 h-2 bg-[#E8C060] animate-pulse"></span>
                 <span className="text-xs font-bold tracking-widest text-[#ccc] uppercase font-mono">Queue System</span>
             </div>
-            <button onClick={onClose} className="text-[#555] hover:text-white transition-colors">
-                <X size={16} />
-            </button>
+            <div className="flex items-center gap-4">
+                {playQueue.length > 0 && (
+                    <button 
+                        onClick={() => {
+                            if (currentTrackIndex >= 0 && playQueue[currentTrackIndex]) {
+                                setPlayQueue([playQueue[currentTrackIndex]]);
+                                if (setCurrentTrackIndex) {
+                                    setCurrentTrackIndex(0);
+                                }
+                            } else {
+                                setPlayQueue([]);
+                            }
+                        }}
+                        className="text-[10px] font-mono text-[#FF6B35] border border-[#FF6B35]/30 bg-[#FF6B35]/10 px-2 py-1 rounded hover:bg-[#FF6B35] hover:text-[#0e0e10] transition-colors"
+                    >
+                        [CLEAR_ALL_DATA]
+                    </button>
+                )}
+                <button onClick={onClose} className="text-[#555] hover:text-white transition-colors">
+                    <X size={16} />
+                </button>
+            </div>
         </div>
 
         {/* Content */}

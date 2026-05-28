@@ -7,20 +7,34 @@ export const usePlayer = () => useContext(PlayerContext);
 
 export const PlayerProvider = ({ children }) => {
     // --- STATE ---
+    const getInitialSession = () => {
+        try {
+            const saved = localStorage.getItem('playback_session');
+            if (saved) return JSON.parse(saved);
+        } catch { }
+        return null;
+    };
+    const initialSession = getInitialSession();
+
     const [isPlaying, setIsPlaying] = useState(false);
-    const [volume, setVolume] = useState(0.5);
+    const [volume, setVolume] = useState(initialSession?.volume ?? 0.5);
     const [isMuted, setIsMuted] = useState(false);
-    const [prevVolume, setPrevVolume] = useState(0.5);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [playQueue, setPlayQueue] = useState([]);
-    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const [prevVolume, setPrevVolume] = useState(initialSession?.volume ?? 0.5);
+    const [currentTime, setCurrentTime] = useState(initialSession?.currentTime ?? 0);
+    const [playQueue, setPlayQueue] = useState(initialSession?.playQueue ?? []);
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(initialSession?.currentTrackIndex ?? 0);
     const [isShuffle, setIsShuffle] = useState(false);
     const [repeatMode, setRepeatMode] = useState(0); // 0: None, 1: All, 2: One
 
     const [audioDevices, setAudioDevices] = useState([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState('default');
 
-    const [currentTrack, setCurrentTrack] = useState({
+    const [isExclusiveMode, setIsExclusiveMode] = useState(() => {
+        return localStorage.getItem('exclusive_mode') === 'true';
+    });
+    const [hasLoadedFile, setHasLoadedFile] = useState(false);
+
+    const [currentTrack, setCurrentTrack] = useState(initialSession?.currentTrack ?? {
         id: "default",
         title: "",
         artist: "",
@@ -55,9 +69,25 @@ export const PlayerProvider = ({ children }) => {
         localStorage.setItem('liked_songs', JSON.stringify(likedSongs));
     }, [likedSongs]);
 
-    const [isExclusiveMode, setIsExclusiveMode] = useState(() => {
-        return localStorage.getItem('exclusive_mode') === 'true';
-    });
+
+    // Save session automatically
+    useEffect(() => {
+        const session = { volume, currentTime, playQueue, currentTrackIndex, currentTrack };
+        localStorage.setItem('playback_session', JSON.stringify(session));
+    }, [volume, playQueue, currentTrackIndex, currentTrack, currentTime]);
+
+    // Restore session time on mount without playing
+    useEffect(() => {
+        if (initialSession && initialSession.currentTime > 0) {
+            const timer = setTimeout(() => {
+                if (audioRef.current) {
+                    audioRef.current.src = initialSession.currentTrack?.src || '';
+                    audioRef.current.currentTime = initialSession.currentTime;
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, []);
 
     const stateRef = useRef({ currentTrack, currentTime, isPlaying, volume });
     useEffect(() => {
@@ -161,11 +191,12 @@ export const PlayerProvider = ({ children }) => {
     }, []);
 
     // --- PLAYBACK LOGIC ---
-    const playTrack = useCallback((track) => {
+    const playTrack = useCallback((track, startTime = 0) => {
         setCurrentTrack(track);
+        setHasLoadedFile(true);
         if (isExclusiveMode) {
             if (window.require) {
-                window.require('electron').ipcRenderer.invoke('mpv-play', track.src)
+                window.require('electron').ipcRenderer.invoke('mpv-play', track.src, startTime)
                     .then(() => setIsPlaying(true))
                     .catch(e => console.error("MPV Playback error:", e));
             }
@@ -175,6 +206,7 @@ export const PlayerProvider = ({ children }) => {
                 if (selectedDeviceId !== 'default' && typeof audioRef.current.setSinkId === 'function') {
                     audioRef.current.setSinkId(selectedDeviceId).catch(err => console.log(err));
                 }
+                audioRef.current.currentTime = startTime;
                 audioRef.current.play()
                     .then(() => setIsPlaying(true))
                     .catch(e => console.error("Playback error:", e));
@@ -186,8 +218,12 @@ export const PlayerProvider = ({ children }) => {
         if (!currentTrack || !currentTrack.src) return;
         if (isExclusiveMode) {
             if (window.require) {
-                window.require('electron').ipcRenderer.invoke('mpv-toggle-pause');
-                setIsPlaying(!isPlaying);
+                if (!hasLoadedFile) {
+                    playTrack(currentTrack, currentTime);
+                } else {
+                    window.require('electron').ipcRenderer.invoke('mpv-toggle-pause');
+                    setIsPlaying(!isPlaying);
+                }
             }
         } else {
             if (audioRef.current) {
@@ -390,17 +426,85 @@ export const PlayerProvider = ({ children }) => {
     };
 
     // --- MEDIA SESSION API ---
+
+    // Generate silent WAV blob URL once (cached)
+    const silentSrcRef = useRef(null);
+    const getSilentSrc = useCallback(() => {
+        if (silentSrcRef.current) return silentSrcRef.current;
+        const sampleRate = 8000;
+        const numSamples = sampleRate;
+        const dataSize = numSamples;
+        const fileSize = 44 + dataSize;
+        const buf = new ArrayBuffer(fileSize);
+        const v = new DataView(buf);
+        const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+        ws(0, 'RIFF'); v.setUint32(4, fileSize - 8, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate, true);
+        v.setUint16(32, 1, true); v.setUint16(34, 8, true); ws(36, 'data'); v.setUint32(40, dataSize, true);
+        for (let i = 44; i < fileSize; i++) v.setUint8(i, 128);
+        silentSrcRef.current = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+        return silentSrcRef.current;
+    }, []);
+
     useEffect(() => {
-        if ('mediaSession' in navigator && currentTrack.title) {
+        if (!audioRef.current || !isExclusiveMode) return;
+
+        if (isPlaying && currentTrack.title) {
+            const el = audioRef.current;
+            if (!el.src || !el.src.startsWith('blob:')) {
+                el.src = getSilentSrc();
+                el.loop = true;
+            }
+            el.volume = 0;
+            el.p
+            lay().catch(() => {});
+        } else {
+            audioRef.current.pause();
+        }
+    }, [isExclusiveMode, isPlaying, currentTrack.title, getSilentSrc]);
+
+    const artworkBlobRef = useRef(null);
+
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !currentTrack.title) return;
+
+        let cancelled = false;
+
+        const setMeta = (artworkArr) => {
+            if (cancelled) return;
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: currentTrack.title,
                     artist: currentTrack.artist || 'Unknown Artist',
                     album: currentTrack.album || 'Unknown Album',
-                    artwork: currentTrack.coverArt ? [{ src: currentTrack.coverArt, sizes: '512x512', type: 'image/png' }] : []
+                    artwork: artworkArr,
                 });
             } catch (e) { console.warn("MediaSession Metadata error", e); }
+        };
+
+        if (currentTrack.coverArt) {
+            try {
+                const fs = window.require('fs');
+                const filePath = currentTrack.coverArt.replace(/^file:\/\//, '');
+                fs.readFile(filePath, (err, data) => {
+                    if (err || cancelled) {
+                        if (!err) setMeta([]);
+                        return;
+                    }
+                    const blob = new Blob([data], { type: 'image/jpeg' });
+                    if (artworkBlobRef.current) URL.revokeObjectURL(artworkBlobRef.current);
+                    artworkBlobRef.current = URL.createObjectURL(blob);
+                    setMeta([{ src: artworkBlobRef.current, sizes: '512x512', type: 'image/jpeg' }]);
+                });
+            } catch (e) {
+                setMeta([]);
+            }
+        } else {
+            setMeta([]);
         }
+
+        return () => { cancelled = true; };
     }, [currentTrack]);
 
     useEffect(() => {
@@ -410,6 +514,18 @@ export const PlayerProvider = ({ children }) => {
     }, [isPlaying]);
 
     useEffect(() => {
+        if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && currentTrack.duration > 0) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: currentTrack.duration,
+                    playbackRate: 1,
+                    position: Math.min(currentTime, currentTrack.duration),
+                });
+            } catch (e) { }
+        }
+    }, [currentTime, currentTrack.duration]);
+
+    useEffect(() => {
         if ('mediaSession' in navigator) {
             try {
                 navigator.mediaSession.setActionHandler('play', () => togglePlay());
@@ -417,14 +533,13 @@ export const PlayerProvider = ({ children }) => {
                 navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
                 navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
                 navigator.mediaSession.setActionHandler('seekto', (details) => {
-                    if (details.seekTime && audioRef.current) {
-                        audioRef.current.currentTime = details.seekTime;
-                        setCurrentTime(details.seekTime);
+                    if (details.seekTime != null) {
+                        seekTrack(details.seekTime);
                     }
                 });
             } catch (e) { console.warn("MediaSession Handler error", e); }
         }
-    }, [togglePlay, handlePrev, handleNext]);
+    }, [togglePlay, handlePrev, handleNext, seekTrack]);
 
     return (
         <PlayerContext.Provider value={{
@@ -435,7 +550,7 @@ export const PlayerProvider = ({ children }) => {
             toggleLikeMultiple, likedSongs, toggleLike,
             isLiked: checkIsLiked(currentTrack),
             checkIsLiked, updatePlaylistCover, toggleMute, isMuted,
-            playTrack, handleSetVolume, addToQueue, removeFromQueue, currentTrackIndex,
+            playTrack, handleSetVolume, addToQueue, removeFromQueue, currentTrackIndex, setCurrentTrackIndex,
             audioDevices, selectedDeviceId, setAudioOutputDevice, getAudioDevices,
             isExclusiveMode, setIsExclusiveMode, seekTrack
         }}>

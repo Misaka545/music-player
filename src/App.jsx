@@ -9,6 +9,7 @@ import CustomModal from './components/CustomModal';
 import FullScreenPlayer from './components/FullScreenPlayer';
 import QueuePopup from './components/QueuePopup';
 import TitleBar from './components/TitleBar';
+import TerminalToast from './components/TerminalToast';
 import { Search, Play, Disc, ListMusic } from 'lucide-react';
 import { saveAlbumToDB, getAllAlbumsFromDB, deleteAlbumFromDB, saveCoverArt, batchDeleteAlbumsFromDB } from './utils/db';
 
@@ -343,8 +344,52 @@ const AppContent = () => {
         };
     }, [deferredSearchQuery, libraryAlbums, playlists, likedSongs]);
 
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!window.require) return;
+        
+        const files = Array.from(e.dataTransfer.files);
+        const paths = files.map(f => f.path).filter(Boolean);
+        
+        if (paths.length > 0) {
+            setIsLoading(true);
+            const { ipcRenderer } = window.require('electron');
+            try {
+                const data = await ipcRenderer.invoke('scan-dropped-paths', paths);
+                if (!data.cancelled && data.library) {
+                    const lib = data.library;
+                    for (const albumName in lib) {
+                        const album = lib[albumName];
+                        album.tracks = album.tracks.map(track => ({
+                            ...track,
+                            coverArt: album.coverArt,
+                            coverArtFull: album.coverArtFull,
+                        }));
+                    }
+                    setLibraryAlbums(lib);
+                }
+            } catch (err) {
+                console.error("Drop import failed:", err);
+            }
+            setIsLoading(false);
+            setScanProgress({ phase: '', scanned: 0, total: 0, currentFile: '' });
+        }
+    };
+
     return (
-        <div className="h-screen w-screen bg-[#09090b] text-[#EAEAEA] font-sans overflow-hidden flex flex-col selection:bg-[#FF6B35] selection:text-black">
+        <div 
+            className="h-screen w-screen bg-[#09090b] text-[#EAEAEA] font-sans overflow-hidden flex flex-col selection:bg-[#FF6B35] selection:text-black"
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+            onDrop={handleDrop}
+        >
 
             {/* 1. TitleBar */}
             <div className="flex-shrink-0 z-50">
@@ -481,6 +526,7 @@ const AppContent = () => {
             {/* Overlays */}
             {showQueue && <QueuePopup onClose={() => setShowQueue(false)} />}
             {isFullScreen && <FullScreenPlayer onClose={() => setIsFullScreen(false)} />}
+            <TerminalToast />
             {/* Exit/Minimize Promt */}
             <CustomModal
                 isOpen={showExitModal}

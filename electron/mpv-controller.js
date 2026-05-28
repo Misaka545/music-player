@@ -14,7 +14,7 @@ class MPVController {
         this.eventListeners = new Map();
         this.isConnected = false;
         this.pendingSeek = 0;
-        
+
         let basePath;
         if (__dirname.includes('app.asar')) {
             basePath = path.join(process.resourcesPath, 'bin');
@@ -53,6 +53,8 @@ class MPVController {
                 '--ao=wasapi',
                 '--audio-exclusive=yes',
                 '--audio-client-name=Retrograde',
+                '--input-media-keys=no',
+                '--media-controls=no',
                 '--no-video',
                 '--keep-open=yes'
             ], {
@@ -77,7 +79,7 @@ class MPVController {
             this.socket.on('connect', () => {
                 console.log('Connected to MPV IPC');
                 this.isConnected = true;
-                
+
                 this.command('observe_property', [1, 'time-pos']);
                 this.command('observe_property', [2, 'pause']);
                 this.command('observe_property', [3, 'eof-reached']);

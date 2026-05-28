@@ -5,6 +5,7 @@ import { formatTime } from '../utils/timeUtils';
 import CustomModal from './CustomModal';
 import CoverImage from './CoverImage';
 import { saveCoverArt, deleteCoverFiles } from '../utils/db';
+import { showToast } from './TerminalToast';
 
 const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => { 
   const { startAlbumPlayback, currentTrack, playlists, addTrackToPlaylist, removeTrackFromPlaylist, toggleLike, checkIsLiked, deletePlaylist, updatePlaylistCover, toggleLikeMultiple, likedSongs, addToQueue } = usePlayer();
@@ -17,6 +18,7 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
   const handleAddToQueue = () => {
       if (contextMenu.track) {
           addToQueue(contextMenu.track);
+          showToast(`TRACK_ADDED // QUEUE: ${contextMenu.track.title}`, 'SUCCESS');
       }
       closeContextMenu();
   };
@@ -72,15 +74,24 @@ const AlbumDetail = ({ album, onBack, onDeleteAlbum }) => {
   const handlePlay = (index) => startAlbumPlayback(albumTracks, index);
   const handleContextMenu = (e, track) => { e.preventDefault(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, track: track }); };
   const closeContextMenu = () => setContextMenu({ ...contextMenu, visible: false });
-  const handleToggleLikeSingle = () => { if (contextMenu.track) toggleLike(contextMenu.track); closeContextMenu(); }
+  const handleToggleLikeSingle = () => {
+      if (contextMenu.track) {
+          const wasLiked = checkIsLiked(contextMenu.track);
+          toggleLike(contextMenu.track);
+          showToast(wasLiked ? `TRACK_REMOVED // FAVORITES` : `TRACK_ADDED // FAVORITES: ${contextMenu.track.title}`, wasLiked ? 'INFO' : 'SUCCESS');
+      }
+      closeContextMenu();
+  }
   const handleAddToPlaylist = (playlistId) => {
     if (contextMenu.track) {
       const pl = playlists.find(p => p.id === playlistId);
       const exists = pl && pl.tracks.some(t => t.title === contextMenu.track?.title);
       if (exists) {
         removeTrackFromPlaylist(playlistId, contextMenu.track);
+        showToast(`TRACK_REMOVED // PLAYLIST: ${pl.name}`, 'INFO');
       } else {
         addTrackToPlaylist(playlistId, contextMenu.track);
+        showToast(`TRACK_ADDED // PLAYLIST: ${pl.name}`, 'SUCCESS');
       }
     }
     closeContextMenu();

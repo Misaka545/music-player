@@ -129,6 +129,10 @@ function createWindow() {
   win.on('closed', () => {
     win = null;
   });
+
+  win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer] ${message} (${sourceId}:${line})`);
+  });
 }
 
 ipcMain.on('window-minimize', () => {
@@ -288,6 +292,43 @@ ipcMain.handle('scan-files', async () => {
 
   win.webContents.send('scan-complete', { library });
   return { cancelled: false, count: result.filePaths.length, library };
+});
+
+ipcMain.handle('scan-dropped-paths', async (event, paths) => {
+  if (!win || !paths || paths.length === 0) return { cancelled: true };
+  const fs = require('fs');
+  const path = require('path');
+  const AUDIO_EXTENSIONS = new Set(['.flac', '.mp3', '.wav', '.aac', '.ogg', '.m4a', '.wma', '.aiff', '.alac', '.opus']);
+  
+  let allAudioFiles = [];
+  
+  win.webContents.send('scan-progress', { phase: 'discovering', scanned: 0, total: 0, currentFile: `Scanning dropped items...` });
+  
+  for (const p of paths) {
+    try {
+      const stat = fs.statSync(p);
+      if (stat.isDirectory()) {
+        allAudioFiles.push(...discoverAudioFiles(p));
+      } else if (stat.isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        if (AUDIO_EXTENSIONS.has(ext)) {
+          allAudioFiles.push(p);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to stat dropped path: ${p}`, e);
+    }
+  }
+  
+  if (allAudioFiles.length === 0) {
+    return { cancelled: false, count: 0, library: {} };
+  }
+  
+  const existingLibrary = readLibrarySync();
+  const library = await scanFiles(allAudioFiles, win, existingLibrary);
+  
+  win.webContents.send('scan-complete', { library });
+  return { cancelled: false, count: allAudioFiles.length, library };
 });
 
 ipcMain.handle('regenerate-thumbnails', async () => {

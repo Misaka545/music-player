@@ -4,6 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Volume1, VolumeX, Disc, He
 import { usePlayer } from '../context/PlayerContext';
 import { formatTime } from '../utils/timeUtils';
 import CoverImage from './CoverImage';
+import { showToast } from './TerminalToast';
 
 const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
     const {
@@ -47,6 +48,26 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         handleVolumePointer(e);
     };
+
+    const volumeAreaRef = useRef(null);
+    const volumeRef_forWheel = useRef(volume);
+    volumeRef_forWheel.current = volume;
+
+    useEffect(() => {
+        const el = volumeAreaRef.current;
+        if (!el) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const delta = e.deltaY < 0 ? 1 : -1;
+            const step = 1 / 15;
+            const prev = volumeRef_forWheel.current;
+            const newVal = Math.round((prev + delta * step) * 15) / 15;
+            setVolume(Math.max(0, Math.min(1, newVal)));
+        };
+        el.addEventListener('wheel', handler, { passive: false });
+        return () => el.removeEventListener('wheel', handler);
+    }, [setVolume]);
 
     const getDeviceName = (device) => {
         if (device.label) return device.label;
@@ -123,7 +144,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
             <div className="w-1/4 flex justify-end items-center gap-6 z-10 min-w-[320px]">
 
                 {/* VOLUME SLIDER */}
-                <div className="flex items-center gap-3 group relative w-24 h-8 flex-shrink-0">
+                <div ref={volumeAreaRef} className="flex items-center gap-3 group relative w-24 h-8 flex-shrink-0">
                     <button onClick={toggleMute} className="text-[#555] group-hover:text-white transition-colors focus:outline-none">
                         <VolumeIcon size={18} />
                     </button>
@@ -161,7 +182,7 @@ const PlayerBar = ({ onOpenAlbum, onToggleFullScreen, onToggleQueue }) => {
                     </button>
 
                     {/* Heart */}
-                    <button onClick={() => toggleLike()} className={`transition-colors flex items-center justify-center ${isLiked ? 'text-[#FF6B35]' : 'hover:text-[#FF6B35]'}`}>
+                    <button onClick={() => { toggleLike(); showToast(isLiked ? 'TRACK_REMOVED // FAVORITES' : 'TRACK_ADDED // FAVORITES', isLiked ? 'INFO' : 'SUCCESS'); }} className={`transition-colors flex items-center justify-center ${isLiked ? 'text-[#FF6B35]' : 'hover:text-[#FF6B35]'}`}>
                         <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
                     </button>
 
